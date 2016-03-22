@@ -6,6 +6,7 @@ use utf8;
 use Exporter 'import';
 our @EXPORT_OK = 'parse_json';
 our @EXPORT = 'parse_json';
+
 sub mydelete {
 	my ($stref, $pos) = @_;
 	my $empty = '';
@@ -56,14 +57,14 @@ sub parse_json {
 		while (/\s*+"((?:[^"\\\/]|\\["\\\/bnfrt]|\\u[0-9A-F]{1,4})*+)"\s*+:\s*+/sg ) {
 			my $key = $1;
 			mydelete (\$_, pos($_));
-			if (/\G(\-?(?:0|[1-9]\d*)(?:\.\d++)?(?:[Ee][+-]\d+(?:,?\s*+)|(?:,?\s*+)))/sg) {
+			if (/\G(\-?(?:0|[1-9]\d*)(?:\.\d++)?(?:[Ee][+-]\d+(?:\s*,?\s*+)|(?:\s*,?\s*+)))/sg) {
 				my $value = $1;
 				$value =~ s/,|\s/$empty/sge;
 				$object{$key} = 0+$value;
 				mydelete (\$_, pos($_));
 				next; 
 			}
-			if (/\G"((?:[^"\\\/]|\\["\\\/bnfrt]|\\u[0-9A-F]{1,4})*?)"(?:,?\s*+)/sg) {
+			if (/\G"((?:[^"\\\/]|\\["\\\/bnfrt]|\\u[0-9A-F]{1,4})*?)"(?:\s*,?\s*+)/sg) {
 				my $value = $1;
 				$value = convert $value;
 				$object{$key} = $value;
@@ -97,7 +98,7 @@ sub parse_json {
 		my $flag = 0;
 		#return die if /^\s*$/sg or !defined;
 		while (/^\s*+(
-			(?:"(?:[^"\\\/]|\\["\\\/bnfrt]|\\u[0-9A-F]{1,4})*+")(,\s*+|\s*+\]\s*,?\s*+)
+			(?:"(?:[^"\\\/]|\\["\\\/bnfrt]|\\u[0-9A-F]{1,4})*+")(\s*,\s*+|\s*+\]\s*,?\s*+)
 			|
 			(\-?(?:0|[1-9]\d*)(?:\.\d++)?(?:[Ee][+-]\d+(\s*,\s*+|\s*+\]\s*,?\s*+)|(\s*,\s*+|\s*+\]\s*,?\s*+)))
 			|
