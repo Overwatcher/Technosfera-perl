@@ -5,13 +5,15 @@ use warnings;
 
 use Moose;
 
+extends 'Local::Iterator';
+
 has array => (
 	is =>'ro',
 	isa => 'ArrayRef',
 	reader => 'get_array'
 );
 
-has temparray => (
+has temp => (
 	is =>'rw',
 	isa =>'ArrayRef',
 	reader => 'get_temp',
@@ -43,10 +45,4 @@ sub next {
 	return ($val, $end);
 }
 
-sub all {
-	my $self = shift;
-	my $ret = $self->get_temp;
-	$self->set_temp([undef]);
-	return $ret;
-}
 1;

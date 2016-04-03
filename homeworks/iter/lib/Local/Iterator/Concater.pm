@@ -5,6 +5,8 @@ use warnings;
 
 use Moose;
 
+extends 'Local::Iterator';
+
 has iterators => (
 	is => 'ro',
 	isa => 'ArrayRef[Object]',
@@ -27,24 +29,6 @@ sub next {
 		return ($val, 0);
 	} continue {$count++;}
 }
-sub all {
-	my $self = shift;
-	my @all;
-	my $iterators = $self->get_iterators;
-	my ($val, $end);
-	my $count = 1;
-	for my $iter (@$iterators) {
-		($val, $end) = $iter->next();
-		if (!defined $val and $end == 1 and $count == scalar(@$iterators)) {
-			return \@all;
-		}
-		if (!defined $val and $end == 1) {
-			next;
-		}
-		push (@all, $val);
-		redo;
-	} continue {$count++;}
-	return \@all;
-}
+
 
 1;

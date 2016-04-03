@@ -5,6 +5,8 @@ use warnings;
 
 use Moose;
 
+extends 'Local::Iterator';
+
 has chunk_length => (
 	is => 'rw',
 	isa => 'Int',
@@ -28,24 +30,12 @@ sub next {
 	$end = 0;
 	for (1..$ch_l) {
 		($val, $end) = $iterator->next();
-		return (undef, $end) if (!defined $val and $_ == 1 and $end == 1);
-		return (\@chunk, $end) if (!defined $val and $end == 1); 
+		last if ($end == 1);
 		push (@chunk, $val);
 	}
-	return (\@chunk, $end);
+	return (undef, 1) unless (@chunk);
+	return (\@chunk, 0);
 }
 
-sub all {
-	my $self = shift;
-	my @chunks;
-	my ($chunk, $end);
-	$end = 0;
-	while (!$end) {
-		($chunk, $end) = $self->next();
-		push (@chunks, $chunk);
-	}
-	
-	return \@chunks;
-}
 
 1;

@@ -5,6 +5,8 @@ use warnings;
 
 use Moose;
 
+extends 'Local::Iterator';
+
 has fh => (
 	is => 'rw',
 	isa => 'FileHandle',
@@ -42,15 +44,5 @@ sub next {
 	return ($str, 0);
 }
 
-sub all {
-	my $self = shift;
-	my $fh = $self->get_fh;
-	my $str;
-	my @ret;
-	while ($str = <$fh>) {
-		chomp $str;
-		push (@ret, $str);
-	}
-	return \@ret;
-}
+
 1;
