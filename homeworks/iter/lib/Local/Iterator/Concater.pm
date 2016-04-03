@@ -3,21 +3,48 @@ package Local::Iterator::Concater;
 use strict;
 use warnings;
 
-=encoding utf8
+use Moose;
 
-=head1 NAME
+has iterators => (
+	is => 'ro',
+	isa => 'ArrayRef[Object]',
+	reader => 'get_iterators'
+);
 
-Local::Iterator::Concater - concater of other iterators
-
-=head1 SYNOPSIS
-
-    my $iterator = Local::Iterator::Concater->new(
-        iterators => [
-            $another_iterator1,
-            $another_iterator2,
-        ],
-    );
-
-=cut
+sub next {
+	my $self = shift;
+	my $iterators = $self->get_iterators;
+	my ($val, $end, $count);
+	$count = 1;
+	for my $iter (@$iterators) {
+		($val, $end) = $iter->next();
+		if (!defined $val and $end == 1 and $count == scalar(@$iterators)) {
+			return (undef, 1);
+		}
+		if (!defined $val and $end == 1) {
+			next;
+		}
+		return ($val, 0);
+	} continue {$count++;}
+}
+sub all {
+	my $self = shift;
+	my @all;
+	my $iterators = $self->get_iterators;
+	my ($val, $end);
+	my $count = 1;
+	for my $iter (@$iterators) {
+		($val, $end) = $iter->next();
+		if (!defined $val and $end == 1 and $count == scalar(@$iterators)) {
+			return \@all;
+		}
+		if (!defined $val and $end == 1) {
+			next;
+		}
+		push (@all, $val);
+		redo;
+	} continue {$count++;}
+	return \@all;
+}
 
 1;

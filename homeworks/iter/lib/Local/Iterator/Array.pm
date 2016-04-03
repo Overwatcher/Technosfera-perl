@@ -3,16 +3,50 @@ package Local::Iterator::Array;
 use strict;
 use warnings;
 
-=encoding utf8
+use Moose;
 
-=head1 NAME
+has array => (
+	is =>'ro',
+	isa => 'ArrayRef',
+	reader => 'get_array'
+);
 
-Local::Iterator::Array - array-based iterator
+has temparray => (
+	is =>'rw',
+	isa =>'ArrayRef',
+	reader => 'get_temp',
+	writer => 'set_temp',
+	predicate => 'has_temp',
+	clearer => 'clear_temp'
+);
 
-=head1 SYNOPSIS
+sub BUILD {
+	my $self = shift;
+	my @temp;
+	my $ref = $self->get_array;
+	for (@$ref) {
+		push (@temp, $_);
+	}
+	$self->set_temp(\@temp);
+}
 
-    my $iterator = Local::Iterator::Array->new(array => [1, 2, 3]);
+sub next {
+	my $self = shift;
+	my ($val, $end, $temp);
+	$end = 0;
+	$temp = $self->get_temp;
+	$val = shift @$temp;
+	if (!defined $val and scalar(@$temp) == 0) {
+		$end = 1; 
+		$self->set_temp([undef]);
+	}
+	return ($val, $end);
+}
 
-=cut
-
+sub all {
+	my $self = shift;
+	my $ret = $self->get_temp;
+	$self->set_temp([undef]);
+	return $ret;
+}
 1;
