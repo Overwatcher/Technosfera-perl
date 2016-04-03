@@ -8,9 +8,8 @@ use Moose;
 extends 'Local::Iterator';
 
 has chunk_length => (
-	is => 'rw',
+	is => 'ro',
 	isa => 'Int',
-	writer => 'set_chunk_length',
 	reader => 'get_chunk_length'
 );
 

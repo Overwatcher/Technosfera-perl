@@ -20,14 +20,10 @@ sub next {
 	$count = 1;
 	for my $iter (@$iterators) {
 		($val, $end) = $iter->next();
-		if (!defined $val and $end == 1 and $count == scalar(@$iterators)) {
-			return (undef, 1);
-		}
-		if (!defined $val and $end == 1) {
-			next;
-		}
+		next if (!defined $val and $end == 1);
 		return ($val, 0);
-	} continue {$count++;}
+	}
+	return (undef, 1);
 }
 
 

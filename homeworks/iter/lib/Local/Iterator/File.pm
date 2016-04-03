@@ -30,7 +30,6 @@ sub _build_fh {
 	if ( $self->has_filename ) {
 		open ($fh, '<', $self->get_filename) or die "$!";
 	}
-	elsif ($self->has_fh) {return $fh;}
 	return $fh;
 }
 

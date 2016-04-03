@@ -3,6 +3,7 @@ package Local::Iterator::Array;
 use strict;
 use warnings;
 
+
 use Moose;
 
 extends 'Local::Iterator';
@@ -13,7 +14,7 @@ has array => (
 	reader => 'get_array'
 );
 
-has temp => (
+has _temp => (
 	is =>'rw',
 	isa =>'ArrayRef',
 	reader => 'get_temp',
@@ -24,12 +25,12 @@ has temp => (
 
 sub BUILD {
 	my $self = shift;
-	my @temp;
+	my $temp;
 	my $ref = $self->get_array;
 	for (@$ref) {
-		push (@temp, $_);
+		push(@$temp, $_);
 	}
-	$self->set_temp(\@temp);
+	$self->set_temp($temp);
 }
 
 sub next {
@@ -37,12 +38,8 @@ sub next {
 	my ($val, $end, $temp);
 	$end = 0;
 	$temp = $self->get_temp;
-	$val = shift @$temp;
-	if (!defined $val and scalar(@$temp) == 0) {
-		$end = 1; 
-		$self->set_temp([undef]);
-	}
-	return ($val, $end);
+	return (undef, 1)  unless scalar(@$temp);
+	return (shift @$temp, $end);
 }
 
 1;
