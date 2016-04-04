@@ -10,21 +10,19 @@ extends 'Local::Iterator';
 has chunk_length => (
 	is => 'ro',
 	isa => 'Int',
-	reader => 'get_chunk_length'
 );
 
 has iterator => (
 	is => 'ro',
-	isa => 'Object',
-	reader => 'get_iterator'
+	isa => 'Object'
 );
 
 
 sub next {
 	my $self = shift;
 	my @chunk;
-	my $ch_l = $self->get_chunk_length;
-	my $iterator = $self->get_iterator;
+	my $ch_l = $self->chunk_length;
+	my $iterator = $self->iterator;
 	my ($end, $val);
 	$end = 0;
 	for (1..$ch_l) {

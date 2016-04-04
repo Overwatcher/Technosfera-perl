@@ -9,13 +9,12 @@ extends 'Local::Iterator';
 
 has iterators => (
 	is => 'ro',
-	isa => 'ArrayRef[Object]',
-	reader => 'get_iterators'
+	isa => 'ArrayRef[Object]'
 );
 
 sub next {
 	my $self = shift;
-	my $iterators = $self->get_iterators;
+	my $iterators = $self->iterators;
 	my ($val, $end, $count);
 	$count = 1;
 	for my $iter (@$iterators) {
