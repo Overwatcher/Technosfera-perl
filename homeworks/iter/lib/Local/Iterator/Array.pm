@@ -15,9 +15,7 @@ has array => (
 
 has _temp => (
 	is =>'rw',
-	isa =>'ArrayRef',
-	reader => '_get_temp',
-	writer => '_set_temp'
+	isa =>'ArrayRef'
 );
 
 sub BUILD {
@@ -27,14 +25,14 @@ sub BUILD {
 	for (@$ref) {
 		push(@$temp, $_);
 	}
-	$self->_set_temp($temp);
+	$self->_temp($temp);
 }
 
 sub next {
 	my $self = shift;
 	my ($val, $end, $temp);
 	$end = 0;
-	$temp = $self->_get_temp;
+	$temp = $self->_temp;
 	return (undef, 1)  unless scalar(@$temp);
 	return (shift @$temp, $end);
 }
