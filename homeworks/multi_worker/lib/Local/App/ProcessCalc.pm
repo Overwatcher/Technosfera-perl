@@ -2,6 +2,9 @@ package Local::App::ProcessCalc;
 
 use strict;
 use warnings;
+use FindBin;
+use lib "$FindBin::Bin/../lib";
+use DDP;
 use Fcntl qw(:flock :seek);
 use IO::Socket;
 use IO::Select;
@@ -10,8 +13,6 @@ use Exporter 'import';
 our @EXPORT = qw(multi_calc get_from_server);
 our $status_file = "./calc_status.txt";
 our %kids;
-our $sfFH;
-open ($sfFH, "+>", $status_file) or die "$!";
 $SIG{CHLD} = \&mychld;
 
 sub mychld {
@@ -19,6 +20,9 @@ sub mychld {
 		last if $pid == -1;
 		if ($? >> 8) {
 			myint();
+		}
+		else {
+			$kids{$pid} = 0;
 		}
 	}
 }
@@ -63,6 +67,8 @@ sub calc_jobs {
 sub multi_calc {
 	my ($fork_cnt, $jobs, $calc_port) = @_;
 	my ($pRead, $cWrite, $pWrite, $cRead);
+	my (@result_pid, $res);
+	$res = [];
 	my $intpart = int(scalar(@$jobs)/$fork_cnt);
 	my $rest = scalar(@$jobs) - $fork_cnt*$intpart;
 	my $it = 1;
@@ -71,66 +77,57 @@ sub multi_calc {
 	$cWrite -> autoflush(1);
 	$pWrite -> autoflush(1);
 	my $pid;
-	for (1..$fork_cnt) {
-		myint() if (_check_resp($cRead, $pid) and $_ != 1);
+	my $number = 1;
+	for $number (1..$fork_cnt) {
+		myint() if ($number != 1 and !_check_resp($cRead, $pid));
 		$pid = fork();
 		if (!defined $pid) {return die "Unable to fork: $!";}
 		if ($pid == 0) {last;}
-		print $cWrite "$pid\n";
-		$kids{$pid} = 1;
-		for (1..$intpart) {
-			print $cWrite shift @$jobs;
-		}
-		print $cWrite shift @$jobs if $it <= $rest;
-		$it++;
+		print $cWrite "$pid $number\n";
+		$kids{$pid} = $number;
 	}
 	if ($pid) {
-		myint() unless _check_resp($cRead, $pid);
-		close $pRead;
-		close $pWrite;
-		my @ret;
-		my @handlers;
-		my $result;
-		for (keys %kids) {
-			my $kidfh;
-			open($kidfh, "+>>", "./result_$_.txt");
-			push(@handlers, $kidfh);
-		}
-		while (my @ready = IO::Select->new(@handlers)->can_read ) {
-			for my $ready (@ready) {
-				while (my $res = <$ready>) {
-					chomp $res;
-					push (@ret, $res);
+		myint() if (!_check_resp($cRead, $pid));
+		my $number = $fork_cnt;
+		while (1) {
+			for (keys %kids) {
+				if ($kids{$_} == 0) {
+					open (my $resFH, "<", "results_$_.txt") or die "$!";
+					@result_pid = <$resFH>;
+					for my $result (@result_pid) {
+						push (@$res, $result);
+					}
+					unlink "./results_$_.txt";
+					$kids{$_} = -1;
+					$number--;
 				}
-				
 			}
+			if ($number == 0) {last;}
 		}
-		close $sfFH;
-		return \@ret;
+#		unlink $status_file;
+		return $res;
 	}
 	else {
 		close $cRead;
 		close $cWrite;
 
-		$pid = <$pRead>;
-		chomp $pid;
-		$pid =0+$pid;
-
+		my $str = <$pRead>;
+		chomp $str;
+		($pid, my $number) = split(' ', $str);
+		print $pWrite pack("l", $pid);
+		close $pWrite;
+		close $pRead;
 		my $status = 0;
 		my @ownjobs;
 		my $count = 0;
 
+		@ownjobs = @$jobs[( $intpart * ($number - 1) )..($intpart * $number - 1 )];
+		if ($number <= $rest) {push (@ownjobs, $jobs -> [$intpart * ($number)]); }
+
 		status_update($pid, $status, $count);
 
-		open (my $cFH, "+>>", "./results_$pid.txt") or die "Unable to open file: $!";
+		open (my $cFH, "+>>", "results_$pid.txt") or die "Unable to open file: $!";
 
-		$intpart++ if $it <= $rest;
-		for (1..$intpart) {
-			my $job = <$pRead>;
-			chomp $job;
-			push (@ownjobs, $job);
-		}
-		print $pWrite pack("l", $pid);
 
 		my $socket = IO::Socket::INET -> new (
 			PeerAddr => "127.0.0.1",
@@ -148,6 +145,7 @@ sub multi_calc {
 		$status = 2;
 		status_update($pid, $status, $count);
 		close $cFH;
+		close $socket;
 		exit 0;
 	}
 	
@@ -176,7 +174,6 @@ sub get_from_server {
 		$len = unpack("l", $len);
 		read($ready, $job, $len);
 		$job = unpack("a*", $job);
-		$job = $job . "\n";
 		push (@$jobs, $job);
 	}
 	close $socket;
@@ -188,10 +185,11 @@ sub status_update {
 	my $stat = $status_num[$status];
 	my $prevpos = 0;
 	my $curpos = 0;
-#	open (my $FH, "+>", $status_file) or die "Unable to open $status_file : $!";
+	my $sfFH;
+	open ($sfFH, "+>", $status_file) or die "$!";
 	flock($sfFH, LOCK_EX);
-	print $sfFH, qq(\{$pid => \{status => $stat, cnt => $count \}\});
+	print $sfFH qq(\{$pid => \{status => $stat, cnt => $count \}\});
 	flock ($sfFH, LOCK_UN);
-#	close $FH;
+	close $sfFH;
 }
 1;

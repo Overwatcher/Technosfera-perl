@@ -5,7 +5,6 @@ use warnings;
 use FindBin;
 use lib "$FindBin::Bin/../lib";
 use Fcntl qw(:flock :seek);
-use Local::App::GenTask 'gentask';
 use POSIX ":sys_wait_h";
 use Encode;
 use IO::Socket;
@@ -16,44 +15,55 @@ our @EXPORT= qw(start_server get);
 #our @EXPORT;
 
 our $file_path = './calcs.txt';
-open (my $FH, "+>>:encoding(UTF-8)", $file_path) or die "$!";
 
-our %kids;
+
+our $alarmed;
+
 
 $SIG{ALRM} = \&myalarm;
 
 $SIG{INT} = \&myint;
 
-$SIG{CHLD} = \&mychld;
 
 sub myalarm {
-	flock ($FH, LOCK_EX);
-	seek($FH, 0, SEEK_END);
-
-	if (-s $file_path > 1024*10) {exit 1;}
-	print $FH gentask();
-	print $FH "\n";
-	flock ($FH, LOCK_UN);
+	new_one();
+	if (-s $file_path > 1024*1024) { unlink $file_path; exit 0;}
+	$alarmed = 1;
 	ualarm(100000);
 }
 
 
 
 sub myint {
-	for my $pid (keys %kids) {
-		kill ('TERM', $pid);
-	}
-	close $FH;
 	unlink $file_path;
-	return exit 1;
+	return exit 0;
 }
 
-sub mychld {
-	while (my $pid = waitpid(-1, WNOHANG)) {
-		last if $pid == -1;
-		if ($? >> 8) {close $FH; unlink $file_path; exit 1;}
-	}
+
+sub new_one {
+	# Функция вызывается по таймеру каждые 100
+	my $new_row = join $/, int(rand(5)).' + '.int(rand(5)), 
+                  int(rand(2)).' + '.int(rand(5)).' * '.int(int(rand(10))), 
+                  '('.int(rand(10)).' + '.int(rand(8)).') * '.int(rand(7)), 
+                  int(rand(5)).' + '.int(rand(6)).' * '.int(rand(8)).' ^ '.int(rand(12)), 
+                  int(rand(20)).' + '.int(rand(40)).' * '.int(rand(45)).' ^ '.int(rand(12)), 
+                  (int(rand(12))/(int(rand(17))+1)).' * ('.(int(rand(14))/(int(rand(30))+1)).' - '.int(rand(10)).') / '.rand(10).'.0 ^ 0.'.int(rand(6)),  
+                  int(rand(8)).' + 0.'.int(rand(10)), 
+                  int(rand(10)).' + .5',
+                  int(rand(10)).' + .5e0',
+                  int(rand(10)).' + .5e1',
+                  int(rand(10)).' + .5e+1', 
+                  int(rand(10)).' + .5e-1', 
+                  int(rand(10)).' + .5e+1 * 2';
+	open (my $FH, "+>>:encoding(UTF-8)", $file_path) or die "$!";
+	flock ($FH, LOCK_EX);
+	seek($FH, 0, SEEK_SET);
+	print $FH $new_row;
+	flock ($FH, LOCK_UN);
+	close $FH;
+	return;
 }
+
 sub start_server {
 	my $port = shift;
 	my $server = IO::Socket::INET->new(
@@ -62,48 +72,48 @@ sub start_server {
 		ReuseAddr => 1,
 		Listen => 10)
 	or die "Can't create server on port $port : $@ $/";
-	open (my $FH, '+>', $file_path) or die "$!";
-	my $pid = fork();
-	if (!defined $pid) {die "Unable to fork at GenCalc";}
-	if (!$pid) {ualarm(100000); while (1) {}}
-	$kids{$pid} = 1;
-	while (my $client = $server -> accept()) {
-		$client->autoflush(1);
-		my @ready = IO::Select->new($client)->can_read;
-		$client = $ready[0];
-		my $amount;
-		if (2 != read($client, $amount, 2) ) {close $client; next;}
-		$amount = unpack ("s", $amount);
-		my $get = get($amount);
-		print $client pack("l", scalar(@$get));
-		for my $out (@$get) {
-			print $client pack("l/a*", $out);
+	ualarm(100000);
+	while (1) {
+		while (my $client = $server -> accept()) {
+			$client->autoflush(1);
+			my @ready = IO::Select->new($client)->can_read;
+			$client = $ready[0];
+			my $amount;
+			if (2 != read($client, $amount, 2) ) {close $client; next;}
+			$amount = unpack ("s", $amount);
+			my $get = get($amount);
+			print $client pack("l", scalar(@$get));
+			for my $out (@$get) {
+				print $client pack("l/a*", $out);
+			}
+			close $client;
 		}
-		close $client;
+		if ($alarmed) {$alarmed = 0; next;}
 	}
 }
 
 sub get {
 	my $limit = shift;
+	my $count;
 	my $length = 0;
 	my @out;
-	my $ret =[];
 	my @test;
-	while (1) {
-		flock($FH, LOCK_EX);
-		seek($FH, 0, SEEK_SET);
-		@out = <$FH>;
-		if (scalar(@out) == $limit) {
-			for (@out) {
-				$length += length(Encode::encode_utf8($_));
-			}
-		}
-		else {flock($FH, LOCK_UN); redo;}
-		seek($FH, 0, SEEK_SET);
-		truncate ($FH, $length);
-		flock ($FH, LOCK_UN);
-		last;
+	open (my $FH, "<:encoding(UTF-8)", $file_path) or die "$!";
+	flock ($FH, LOCK_EX);
+	for (1..$limit) {
+		my $job  = <$FH>;
+		if (!defined $job) {last;}
+		chomp $job;
+		push (@out, $job);
 	}
+	my @tocopy = <$FH>;
+	open (my $tempFH, ">", "./temp.txt") or die "$!";
+	for my $str (@tocopy) {print $tempFH $str;}
+	unlink $file_path;
+	rename "temp.txt", "calcs.txt";
+	flock ($FH, LOCK_UN);
+	close $FH;
+	close $tempFH;
 	return \@out;
 }
 1;

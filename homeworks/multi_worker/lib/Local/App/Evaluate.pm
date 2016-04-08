@@ -17,6 +17,7 @@ no warnings 'experimental';
 sub evaluate {
 	my $task = shift;
 	my $rpnref = rpn($task);
+	if ($rpnref eq "Err") {return "Err";}
 	my @rpn = @$rpnref;
 	my $el;
 	my @stack;

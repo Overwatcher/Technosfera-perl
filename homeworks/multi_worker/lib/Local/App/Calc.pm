@@ -35,8 +35,8 @@ sub start_server {
 		LocalPort => $port,
 		Type => SOCK_STREAM,
 		ReuseAddr => 1,
-		Listen => 5
-	);
+		Listen => 10)
+	or die "Can't create server on port $port : $@ $/";
 	my $client;
 	my $child;
 	while ($client = $server->accept()) {
@@ -46,13 +46,14 @@ sub start_server {
 			next;
 		}
 		if (defined $child) {last;}
-		exit 1;
+		die "Couldn't fork";
 
 	}
 	if (!$child) {
 		while (my @ready = IO::Select->new($client)->can_read) {
 			my $ready = $ready[0];
-			exit 0 unless (read($ready,my $len, 4)); 
+			my $len;
+			unless (read($ready, $len, 4)) {close $client; exit 0;}
 			$len = unpack ("l", $len);
 			read($ready, my $task, $len);
 			$task = unpack ("a*", $task);
@@ -64,4 +65,3 @@ sub start_server {
 	}
 }
 1;
-

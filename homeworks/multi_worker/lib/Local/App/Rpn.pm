@@ -102,14 +102,14 @@ sub rpn {
 			}
 			when (')') {
 				while (@stack && $stack[$#stack] ne '(') {
-					if ($#stack == 0) {print "Error: check ()"; return die;}
+					if ($#stack == 0) {print "Error: check ()"; return "Err";}
 					push(@RPN, $stack[$#stack]);
 					pop(@stack);
 				}
 				pop(@stack);
 				next;
 			}
-			default {print "Error:couldn't evaluate"; return die;}
+			default {return "Err";}
 		}
 	} continue {$before = $char unless $flag;}
 	while (@stack) {
