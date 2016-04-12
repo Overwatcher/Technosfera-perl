@@ -35,15 +35,18 @@ sub myint {
 		kill ('TERM', $pid);
 	}
 	unlink $status_file;
-	return exit 1;
+	exit 1;
 }
 
 sub _check_resp {
 	my ($handle, $expect) = @_;
-	my @ready = IO::Select->new($handle)->can_read;
-	my $ready = $ready[0];
-	read($ready, my $response, 4);
-	$response = unpack ("l", $response);
+	my $response;
+	while (my @ready = IO::Select->new($handle)->can_read) {
+		my $ready = $ready[0];
+		if (!defined $ready) {next;}
+		unless (read($ready, $response, 4)) {next;}
+		$response = unpack ("l", $response);
+	}
 	return 1 if $response == $expect;
 	return 0;
 }
@@ -65,6 +68,7 @@ sub calc_jobs {
 	return 1;
 }
 sub multi_calc {
+	$SIG{CHLD} = \&mychld;
 	my ($fork_cnt, $jobs, $calc_port) = @_;
 	my ($pRead, $cWrite, $pWrite, $cRead);
 	my (@result_pid, $res);
@@ -93,7 +97,9 @@ sub multi_calc {
 			for (keys %kids) {
 				if ($kids{$_} == 0) {
 					open (my $resFH, "<", "results_$_.txt") or die "$!";
+					flock($resFH, LOCK_EX);
 					@result_pid = <$resFH>;
+					flock($resFH, LOCK_UN);
 					for my $result (@result_pid) {
 						push (@$res, $result);
 					}
@@ -104,7 +110,6 @@ sub multi_calc {
 			}
 			if ($number == 0) {last;}
 		}
-#		unlink $status_file;
 		return $res;
 	}
 	else {
@@ -115,8 +120,6 @@ sub multi_calc {
 		chomp $str;
 		($pid, my $number) = split(' ', $str);
 		print $pWrite pack("l", $pid);
-		close $pWrite;
-		close $pRead;
 		my $status = 0;
 		my @ownjobs;
 		my $count = 0;
@@ -186,9 +189,22 @@ sub status_update {
 	my $prevpos = 0;
 	my $curpos = 0;
 	my $sfFH;
-	open ($sfFH, "+>", $status_file) or die "$!";
+	open ($sfFH, "+>>", $status_file) or die "$!";
 	flock($sfFH, LOCK_EX);
-	print $sfFH qq(\{$pid => \{status => $stat, cnt => $count \}\});
+	seek($sfFH, 0, SEEK_SET);
+	my $read_struct = <$sfFH>;
+	my $struct; 
+	my $found;
+	if (defined $read_struct) {
+		$found = ($read_struct =~ s/("$pid"\s*:\s*\{"status"\s*:\s*\")(READY|PROCESS|DONE)(\"\s*,\s*"cnt"\s*:\s*)(\d++)/$1$stat$3$count/s); 
+		unless ($found) {
+			$read_struct =~ s/\}\s*$/, "$pid" : \{"status" : \"$stat\", "cnt" : $count \}\}/s;
+		}
+	}
+	unless (defined $read_struct) {$read_struct = qq(\{"$pid" : \{"status" : "$stat", "cnt" : $count \}\});}
+	seek($sfFH, 0, SEEK_SET);
+	truncate ($sfFH, 0);
+	print $sfFH $read_struct;
 	flock ($sfFH, LOCK_UN);
 	close $sfFH;
 }

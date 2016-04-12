@@ -53,7 +53,7 @@ sub start_server {
 		while (my @ready = IO::Select->new($client)->can_read) {
 			my $ready = $ready[0];
 			my $len;
-			unless (read($ready, $len, 4)) {close $client; exit 0;}
+			unless (read($ready, $len, 4)) {next;}
 			$len = unpack ("l", $len);
 			read($ready, my $task, $len);
 			$task = unpack ("a*", $task);
