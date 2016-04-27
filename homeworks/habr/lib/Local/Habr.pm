@@ -8,7 +8,6 @@ use Exporter 'import';
 use JSON::XS;
 use XML::Hash::LX;
 use Mojo::DOM;
-use Encode;
 use utf8;
 use DDP;
 use feature 'postderef';
@@ -17,7 +16,6 @@ no warnings 'experimental';
 
 our @EXPORT = qw(get_user 
 	get_post 
-	getbypost 
 	get_commentors 
 	getuser_habr  
 	getpost_habr 
