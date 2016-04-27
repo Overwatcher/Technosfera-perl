@@ -1,4 +1,5 @@
 {
 	"DBD" : "SQLite",
-	"DBName" : "dbfile"
+	"DBName" : "dbfile",
+	"DBSchema" : "schema.sql"
 }
