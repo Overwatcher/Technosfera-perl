@@ -12,10 +12,13 @@ use utf8;
 use DDP;
 use feature 'postderef';
 
-no warnings 'experimental';
+
+no warnings 'experimental';	
+
 
 our @EXPORT = qw(get_user 
 	get_post 
+	getbypost 
 	get_commentors 
 	getuser_habr  
 	getpost_habr 
@@ -98,8 +101,14 @@ sub parser_post {
 	my %commenters;
 	my $title = $dom->at('span[class="post_title"]')->text;
 	my $author = $dom->at('div[class="profile-header__summary author-info author-info_profile "]');
+	if (!defined $author) {
+		$author = $dom->at('div[class=" profile-header__summary author-info author-info_profile"]');
+	}
 	$author = $author->at('a["href"]');
 	if ($author =~ m/users\/([^\/]*+)\//) {
+		$author = $1;
+	}
+	elsif ($author =~ m/company\/([^\/]*+)\//) {
 		$author = $1;
 	}
 	my $collection = $dom->find('span[class="comment-item__user-info"]');
@@ -126,6 +135,7 @@ sub parser_post {
 
 sub get_user {
 	my $nick = shift;
+	if ($nick eq 'mailru') {warn $nick;}
 	my $sth = $dbh->prepare( qq(select * from user where nick="$nick";) );
 	my $user = $dbh->selectrow_hashref($sth);
 	if (!defined $user) {
@@ -198,6 +208,7 @@ sub self_commentors {
 sub get_commentors {
 	my $post = shift;
 	my @commenters;
+	warn $post->{commenters};
 	my $aref = decode_json($post->{commenters});
 	for my $user (@$aref) {
 		$user = get_user($user);
