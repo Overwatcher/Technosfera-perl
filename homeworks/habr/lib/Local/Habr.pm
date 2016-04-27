@@ -10,13 +10,16 @@ use XML::Hash::LX;
 use Mojo::DOM;
 use utf8;
 use DDP;
+use Getopt::Long;
 use feature 'postderef';
 
 
 no warnings 'experimental';	
 
 
-our @EXPORT = qw(get_user 
+our @EXPORT = qw(
+	execution
+	get_user 
 	get_post 
 	getbypost 
 	get_commentors 
@@ -27,8 +30,7 @@ our @EXPORT = qw(get_user
 	myprint);
 our $config = get_config();
 
-our $dbh = DBI->connect("dbi:$config->{DBD}:dbname=$config->{DBName}",
-    "","") or die $DBI::errstr;
+our $dbh = get_dbh();
 
 our $habr = 'https://habrahabr.ru';
 
@@ -135,7 +137,6 @@ sub parser_post {
 
 sub get_user {
 	my $nick = shift;
-	if ($nick eq 'mailru') {warn $nick;}
 	my $sth = $dbh->prepare( qq(select * from user where nick="$nick";) );
 	my $user = $dbh->selectrow_hashref($sth);
 	if (!defined $user) {
@@ -192,23 +193,16 @@ sub add_post {
 		$post->{comm_number}); ) );
 };
 sub self_commentors {
-	my $select = $dbh->selectall_hashref( qq(select id, author, commenters from post;), 'id' );
-	my @result;
-	for (keys %$select) {
-		my $commenters = $select->{$_}->{commenters};
-		my $author = $select->{$_}->{author};
-		if ($commenters =~ m/$author/) {
-			$author = get_user($author);
-			push(@result, $author);
-		}
-	}
-	return \@result;
+	my $select = $dbh->selectall_arrayref( q{SELECT user.nick as nick, user.karma as karma, user.rating as rating
+		FROM post JOIN user 
+		ON (user.nick=post.author and post.commenters LIKE '%user.nick%');} ,  { Slice => {} } );
+
+	return $select;
 };
 
 sub get_commentors {
 	my $post = shift;
 	my @commenters;
-	warn $post->{commenters};
 	my $aref = decode_json($post->{commenters});
 	for my $user (@$aref) {
 		$user = get_user($user);
@@ -260,5 +254,79 @@ sub _printhash {
 		return;
 	}
 	warn "Wrong format";
+};
+
+sub get_dbh {
+	my $string;
+	my $statements;
+	if  (!-e "$config->{DBName}") {
+		open (my $fh, "<", "$config->{DBSchema}") or die "$!";
+		my @strings = <$fh>;
+		$string = join ('', @strings);
+		$string =~ s/\n//sg;
+		$statements = decode_json($string);
+	}
+	my $dbh = DBI->connect("dbi:$config->{DBD}:dbname=$config->{DBName}",
+    		"","") or die $DBI::errstr;
+	if (defined $string) {
+		for (@$statements) {
+			$dbh->do( qq($_) );
+		}
+	}
+	return $dbh;
+}
+
+sub execution {
+	my $arg = shift;
+	my %options;
+	$options{format} = 'json';
+	if ($arg eq 'user') {
+		GetOptions(\%options, 'name=s', 'post=i', 'format=s', 'refresh');
+		my $user;
+		if (defined $options{name}) {
+			if ($options{refresh}) { $user = getuser_habr($options{name}); }
+			else {$user = get_user($options{name});}
+		}
+		if (defined $options{post}) {
+			if ($options{refresh}) {
+				my $post = getpost_habr($options{post});
+				$user = getuser_habr($$post{author});
+			}
+			else {
+				my $post = get_post($options{post});
+				$user = get_user($$post{author});
+			}
+		}
+		if (!defined $user) {die 'No way to determine a user';}
+		myprint($user, $options{format});
+		return;
+	}
+	if ($arg eq 'post') {
+		GetOptions(\%options, 'id=i', 'format=s', 'refresh');
+		my $post;
+		if ( $options{refresh} ) { $post = getpost_habr($options{id}); }
+		else {$post = get_post($options{id});}
+		myprint($post, $options{format});
+		return;
+	}
+	if ($arg eq 'commenters') {
+		GetOptions(\%options, 'post=i', 'format=s', 'refresh');
+		my $post;
+		if ( $options{refresh} ) { $post = getpost_habr($options{post}); }
+		else {$post = get_post($options{post});}
+		myprint( get_commentors($post), $options{format} );
+		return;
+	}
+	if ($arg eq 'self_commentors') {
+		GetOptions(\%options, 'format=s', 'refresh');
+		myprint(self_commentors(), $options{format});
+		return;
+	}
+	if ($arg eq 'desert_posts') {
+		GetOptions(\%options, 'format=s', 'n=i', 'refresh');
+		myprint( desert_posts($options{n}), $options{format} );
+		return;
+	}
+	die "Wrong arguments";
 };
 1;
