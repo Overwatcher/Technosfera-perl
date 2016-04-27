@@ -21,11 +21,21 @@ our @EXPORT = qw(get_user
 	self_commentors
 	desert_posts
 	myprint);
+our $config = get_config();
 
-our $dbh = DBI->connect("dbi:SQLite:dbname=dbfile",
+our $dbh = DBI->connect("dbi:$config->{DBD}:dbname=$config->{DBName}",
     "","") or die $DBI::errstr;
 
 our $habr = 'https://habrahabr.ru';
+
+sub get_config {
+	open (my $fh, "<", "config") or die "$!";
+	my @strings = <$fh>;
+	my $string = join ('', @strings);
+	$string =~ s/\s*+//sg;
+	$string =~ s/\n//sg;
+	return decode_json($string);
+};
 
 sub getuser_habr {
 	my $nick = shift;
