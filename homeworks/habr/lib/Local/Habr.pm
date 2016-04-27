@@ -12,6 +12,9 @@ use Encode;
 use utf8;
 use DDP;
 use feature 'postderef';
+
+no warnings 'experimental';
+
 our @EXPORT = qw(get_user 
 	get_post 
 	getbypost 
