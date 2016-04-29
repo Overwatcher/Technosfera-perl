@@ -1,0 +1,5 @@
+{
+	"DBD" : "SQLite",
+	"DBName" : "dbfile",
+	"DBSchema" : "schema.sql"
+}
