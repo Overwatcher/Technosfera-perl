@@ -11,9 +11,9 @@ use Mojo::DOM;
 use utf8;
 use DDP;
 use Getopt::Long;
+use FindBin '$Bin';
+FindBin::again();
 use feature 'postderef';
-
-
 no warnings 'experimental';	
 
 
@@ -35,7 +35,7 @@ our $dbh = get_dbh();
 our $habr = 'https://habrahabr.ru';
 
 sub get_config {
-	open (my $fh, "<", "config") or die "$!";
+	open (my $fh, "<", "$Bin/../config") or die "$!";
 	my @strings = <$fh>;
 	my $string = join ('', @strings);
 	$string =~ s/\s*+//sg;
@@ -124,7 +124,7 @@ sub parser_post {
 	my $rating = $dom->at('span[class="voting-wjt__counter-score js-score"]')->text;
 	my $stars = $dom->at('span[class="favorite-wjt__counter js-favs_count"]')->text;
 	my @commenters = keys %commenters;
-	my $comm_number = $dom->at('span[id="comments_count"]')->text;
+	my $comments_count = $dom->at('span[id="comments_count"]')->text;
 	return {
 		title => $title, 
 		author => $author, 
@@ -132,7 +132,7 @@ sub parser_post {
 		views =>0 + $views, 
 		rating =>0 + $rating, 
 		stars =>0 + $stars,
-		comm_number => 0 + $comm_number};
+		comments_count => 0 + $comments_count};
 };
 
 sub get_user {
@@ -152,12 +152,11 @@ sub get_post {
 	my $post = $dbh->selectrow_hashref($sth);
 	if (!defined $post) {
 		$post = getpost_habr($id);
+		push ($post->{commenters}->@*, $post->{author});
 		for ($post->{commenters}->@*) {
-			my $user = $dbh->selectrow_hashref( qq(select * from user where nick="$_";) );
-			if (!defined $user) {
-				add_user(getuser_habr($_));
-			}
+			add_user(getuser_habr($_));
 		}
+		pop $post->{commenters}->@*;
 		add_post($post);
 	}
 	return $post;
@@ -165,55 +164,47 @@ sub get_post {
 
 sub add_user {
 	my $user = shift;
-	my $check = $dbh->selectrow_hashref( qq(select * from user where nick="$user->{nick}";) );
-	if (defined $check) {$dbh->do( qq(delete from user where nick="$user->{nick}";) );}
-	$dbh->do( qq(insert into user (nick, karma, rating) values ("$user->{nick}", "$user->{karma}", "$user->{rating}"); ) );
+	$dbh->do( qq(insert or replace into user (nick, karma, rating) values ("$user->{nick}", "$user->{karma}", "$user->{rating}"); ) );
 };
 
 sub add_post {
-	my $post_orig = shift;
-	my %post = %$post_orig;
-	my $post = \%post;
-	my $check = $dbh->selectrow_hashref( qq(select * from post where id=$$post{id};) );
-	if (defined $check) {$dbh->do( qq(delete from post where id="$post->{id}";) );}
-	my @commenters;
-	for ($post->{commenters}->@*) {
-		push(@commenters, $_);
-		
-	}
-	my $commenters = encode_json(\@commenters);
-	$dbh->do( qq(insert into post (id, author, title, rating, stars, views, commenters, comm_number) values (
+	my $post = shift;
+	$dbh->do( qq(insert or replace into post (id, author, title, rating, stars, views, comments_count) values (
 		$post->{id},
 		"$post->{author}",
 		"$post->{title}",
 		$post->{rating},
 		$post->{stars},
 		$post->{views},
-		'$commenters',
-		$post->{comm_number}); ) );
+		$post->{comments_count}); ) );
+	for ($post->{commenters}->@*) {
+		$dbh->do( qq(insert into commenters (user, postid) values ('$_', '$post->{id}');) );
+	}
 };
 sub self_commentors {
-	my $select = $dbh->selectall_arrayref( q{SELECT user.nick as nick, user.karma as karma, user.rating as rating
-		FROM post JOIN user 
-		ON (user.nick=post.author and post.commenters LIKE '%user.nick%');} ,  { Slice => {} } );
-
-	return $select;
+	  my $self_commentors = $dbh->selectall_arrayref( q(select  distinct user.nick as nick, user.karma as karma, user.rating as rating
+	  		from user JOIN post JOIN commenters
+	  		ON (user.nick=post.author and post.id=commenters.postid and post.author=commenters.user);
+			), 
+	  		{Slice => {} }
+	  	);
+	  	return $self_commentors;
 };
 
 sub get_commentors {
-	my $post = shift;
-	my @commenters;
-	my $aref = decode_json($post->{commenters});
-	for my $user (@$aref) {
-		$user = get_user($user);
-		push (@commenters, $user);
-	}
-	return \@commenters;
+	my $id = shift;
+	my $commenters = $dbh->selectall_arrayref( qq( select distinct user.nick as nick, user.karma as karma, user.rating as rating
+			from user JOIN post JOIN commenters
+			ON (post.id=commenters.postid and commenters.user=user.nick and post.id=$id);
+			), 
+			{Slice => {} }
+		);
+		return $commenters;
 };
 
 sub desert_posts {
 	my $n = shift;
-	my $select = $dbh->selectall_arrayref( qq(select * from post where comm_number<$n), { Slice => {} } );
+	my $select = $dbh->selectall_arrayref( qq(select * from post where comments_count<$n), { Slice => {} } );
 	return $select;
 };
 
@@ -260,13 +251,13 @@ sub get_dbh {
 	my $string;
 	my $statements;
 	if  (!-e "$config->{DBName}") {
-		open (my $fh, "<", "$config->{DBSchema}") or die "$!";
+		open (my $fh, "<", "$Bin/../$config->{DBSchema}") or die "$!";
 		my @strings = <$fh>;
 		$string = join ('', @strings);
 		$string =~ s/\n//sg;
 		$statements = decode_json($string);
 	}
-	my $dbh = DBI->connect("dbi:$config->{DBD}:dbname=$config->{DBName}",
+	my $dbh = DBI->connect("dbi:$config->{DBD}:dbname=$Bin/../$config->{DBName}",
     		"","") or die $DBI::errstr;
 	if (defined $string) {
 		for (@$statements) {
@@ -314,7 +305,7 @@ sub execution {
 		my $post;
 		if ( $options{refresh} ) { $post = getpost_habr($options{post}); }
 		else {$post = get_post($options{post});}
-		myprint( get_commentors($post), $options{format} );
+		myprint( get_commentors($post->{id}), $options{format} );
 		return;
 	}
 	if ($arg eq 'self_commentors') {
