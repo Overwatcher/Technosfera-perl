@@ -11,11 +11,11 @@ use Mojo::DOM;
 use utf8;
 use DDP;
 use Getopt::Long;
+use Cache::Memcached::Fast;
 use FindBin '$Bin';
 FindBin::again();
 use feature 'postderef';
 no warnings 'experimental';	
-
 
 our @EXPORT = qw(
 	execution
@@ -28,11 +28,17 @@ our @EXPORT = qw(
 	self_commentors
 	desert_posts
 	myprint);
+
 our $config = get_config();
 
 our $dbh = get_dbh();
 
 our $habr = 'https://habrahabr.ru';
+
+our $memd = Cache::Memcached::Fast->new({
+	servers => ['localhost::11211'],
+	namespace => 'habr',
+	connect_timeout => 0.2});
 
 sub get_config {
 	open (my $fh, "<", "$Bin/../config") or die "$!";
@@ -129,56 +135,66 @@ sub parser_post {
 		title => $title, 
 		author => $author, 
 		commenters => \@commenters, 
-		views =>0 + $views, 
-		rating =>0 + $rating, 
-		stars =>0 + $stars,
+		views => 0 + $views, 
+		rating => 0 + $rating, 
+		stars => 0 + $stars,
 		comments_count => 0 + $comments_count};
 };
 
 sub get_user {
 	my $nick = shift;
-	my $sth = $dbh->prepare( qq(select * from user where nick="$nick";) );
-	my $user = $dbh->selectrow_hashref($sth);
+	my $user = $memd->get($nick);
+	if (defined $user) { return $user; }
+	my $sth = $dbh->prepare( qq(select * from user where nick=?;) );
+	$user = $dbh->selectrow_hashref($sth, undef, $nick);
 	if (!defined $user) {
 		$user = getuser_habr($nick);
-		add_user($user);
 	}
 	return $user;
 };
 
 sub get_post {
 	my $id = shift;
-	my $sth = $dbh->prepare( qq(select * from post where id="$id";) );
-	my $post = $dbh->selectrow_hashref($sth);
+	my $sth = $dbh->prepare( qq(select * from post where id=?;) );
+	my $post = $dbh->selectrow_hashref($sth, undef, $id);
 	if (!defined $post) {
 		$post = getpost_habr($id);
 		push ($post->{commenters}->@*, $post->{author});
 		for ($post->{commenters}->@*) {
-			add_user(getuser_habr($_));
+			getuser_habr($_);
 		}
 		pop $post->{commenters}->@*;
-		add_post($post);
 	}
 	return $post;
 }
 
 sub add_user {
 	my $user = shift;
-	$dbh->do( qq(insert or replace into user (nick, karma, rating) values ("$user->{nick}", "$user->{karma}", "$user->{rating}"); ) );
+	$memd->set($user->{nick}, $user);
+	my $sth = $dbh->prepare( qq(insert or replace into user 
+		(nick, karma, rating) 
+		values (
+		?, 
+		?, 
+		?); )); 
+	$sth->execute($user->{nick}, $user->{karma}, $user->{rating});
 };
 
 sub add_post {
 	my $post = shift;
-	$dbh->do( qq(insert or replace into post (id, author, title, rating, stars, views, comments_count) values (
-		$post->{id},
-		"$post->{author}",
-		"$post->{title}",
+	my $sth = $dbh->prepare( qq(insert or replace into post (
+		id, author, title, rating, stars, views, comments_count) 
+		values (?, ?, ?, ?, ?, ?, ?); ) );
+	$sth->execute($post->{id},
+		$post->{author},
+		$post->{title},
 		$post->{rating},
 		$post->{stars},
 		$post->{views},
-		$post->{comments_count}); ) );
+		$post->{comments_count});
+	$sth = $dbh->prepare( qq(insert into commenters (user, postid) values (?, ?);) );
 	for ($post->{commenters}->@*) {
-		$dbh->do( qq(insert into commenters (user, postid) values ('$_', '$post->{id}');) );
+		$sth->execute($_, $post->{id});
 	}
 };
 sub self_commentors {
@@ -193,18 +209,18 @@ sub self_commentors {
 
 sub get_commentors {
 	my $id = shift;
-	my $commenters = $dbh->selectall_arrayref( qq( select distinct user.nick as nick, user.karma as karma, user.rating as rating
-			from user JOIN post JOIN commenters
-			ON (post.id=commenters.postid and commenters.user=user.nick and post.id=$id);
-			), 
-			{Slice => {} }
-		);
+	my $sth = $dbh->prepare( qq( select distinct user.nick as nick, user.karma as karma, user.rating as rating
+		from user JOIN post JOIN commenters
+		ON (post.id=commenters.postid and commenters.user=user.nick and post.id=?);
+		) );
+	my $commenters = $dbh->selectall_arrayref( $sth, {Slice => {} }, $id);
 		return $commenters;
 };
 
 sub desert_posts {
 	my $n = shift;
-	my $select = $dbh->selectall_arrayref( qq(select * from post where comments_count<$n), { Slice => {} } );
+	my $sth = $dbh->prepare( qq(select * from post where comments_count<?;));
+	my $select = $dbh->selectall_arrayref( $sth, { Slice => {} }, $n );
 	return $select;
 };
 
@@ -250,7 +266,7 @@ sub _printhash {
 sub get_dbh {
 	my $string;
 	my $statements;
-	if  (!-e "$config->{DBName}") {
+	if  (!-e "$Bin/../$config->{DBName}") {
 		open (my $fh, "<", "$Bin/../$config->{DBSchema}") or die "$!";
 		my @strings = <$fh>;
 		$string = join ('', @strings);
