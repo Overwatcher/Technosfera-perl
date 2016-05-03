@@ -95,7 +95,7 @@ sub _sorting {
     return \@sorted;
 }
 
-my $status = wrap_http_get( $host, ['/'], \$deeplevel );
+my $status = wrap_http_get( $host, ['/']);
 print "\nStatus : $status[$status]\n";
 my $sorted = _sorting(\%urls);
 my $count = 0;
