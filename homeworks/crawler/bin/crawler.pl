@@ -18,12 +18,12 @@ my %urls = (
 
 my @status = (
     'No Content-Length header',
-    'Reached 10000 urls',
+    "Reached max count of urls",
     'Standart exit'
     );
 
 
-my $MAX_PAGES_COUNT = 1000;
+my $MAX_PAGES_COUNT = 500;
 
 
 sub wrap_http_get {
@@ -31,53 +31,56 @@ sub wrap_http_get {
     my $cv = AnyEvent->condvar;
     my $status = -1;
     my %uris;
-    for my $uri (@$arguris) {
+    my $urlcount = scalar (@$arguris);
+    my $ournumber = 0;
+    my %guards;
+    for my $arguri (@$arguris) {
 	$cv->begin();
-	my $fulladdr = $host . $uri;
+	my $number = $ournumber + 1;
+	$ournumber ++;
+	my $fulladdr = $host . $arguri;
 	$fulladdr =~ s{\/$}{};
-	http_get $fulladdr, timeout => 7, sub {
+        $guards{$number} = http_get $fulladdr, timeout => 7, sub {
 	    my ($body, $headers) = @_;
-
+	    p $number;
 	    if (!defined $headers->{'content-length'}) {
-		warn "content-lenght unavailabe";
+		warn "content-length unavailabe";
 		p $headers;
+		$urlcount--;
+		print "\n$urlcount\n";
+		delete $guards{$number};
 		$cv->end();
 		return ;
 	    }
 	    if (defined $urls{$fulladdr}) {
+		$urlcount--;
+		print "\n$urlcount\n";
+		delete $guards{$number};
 		$cv->end();
 		return ;
 	    }
 	    $urls{$fulladdr} = 0 + $headers->{'content-length'};
 	    $urls{sumsize} += $urls{$fulladdr};
-	    if ( scalar ( @$arguris ) >= ( $MAX_PAGES_COUNT - scalar ( keys %urls ) ) ) {
-		$cv->end();
+	    print "\nTOTAL COUNT : " . scalar (keys %urls) . "\n";
+	    if ( scalar (keys %urls) >= $MAX_PAGES_COUNT ) {
+	        for (keys %guards) { delete $guards{$_}; $cv->end();}
+		$status = 1;
 		return ;
 	    }
-	    my $dom = Mojo::DOM->new( $body );
-	    my $a_elements = $dom->find( 'a[href^="/"]' );
-	    my $howmany = scalar @$a_elements;
-	    for (@$a_elements) {
-
-		my $href = $_->attr('href');
+	    my $hrefs = find_refs( $host, $body);
+	    my $it = 0;
+	    
+	    for my $href (@$hrefs) {
+		print "\nPROCESS : $number ( $it )\n";
 		my $newaddr = $host . $href;
 		$newaddr =~ s{\/$}{};
 		if ( defined $urls{$newaddr} ) {next;}
-		if ( scalar(keys %urls) >= $MAX_PAGES_COUNT ) {
-		    $status = 1;
-		    last;
-		}
 		$uris{$href} = 1;
-		my $NEWHREFS = scalar(keys %uris);
-		my $OLDHREFS = scalar(keys %urls);
-		warn "THERE ARE $NEWHREFS NEW REFS and $OLDHREFS OLD REFS";
-		if (scalar(keys %uris) >= $MAX_PAGES_COUNT -scalar(keys %urls) ) {
-		    $status = 3;
-		    last;
-		}
-	    }
+	    } continue {$it++;}
+	    $urlcount--;
+	    print "\n$urlcount\n";
+	    delete $guards{$number};
 	    $cv->end();
-	    if ($status == 3 or $status == 1) { $cv->send(); }
 	};
     }
     $cv->recv();
@@ -95,8 +98,36 @@ sub _sorting {
     return \@sorted;
 }
 
+sub find_refs {
+    my ($host, $body) = @_;
+    my $dom = Mojo::DOM->new( $body );
+    my @refs;
+    my $a_elements1 = $dom->find( 'a[href^="/"]' );
+    my $a_elements2 = $dom->find ( qq( a[href^="http://"] ) );
+    my $cuthost = ( $host =~ s{(http://)}{}r );
+    
+    for (@$a_elements1) {
+	if ($_->attr( 'href' )  =~ m{^//(?:www.)?$cuthost(\/.*)} ) {
+	    push (@refs, $1);
+	    next;
+	}
+	if ($_->attr( 'href' ) =~ m{^//}) {next;}
+	push( @refs, $_->attr ('href') );
+    }
+    
+    for (@$a_elements2) {
+	if ($_->attr( 'href' ) =~ m{http://(?:www.)?$cuthost(\/.*)} ) {
+	    push (@refs, $1);
+	    next;
+	}
+    }
+
+    return \@refs;
+    
+    
+}
+
 my $status = wrap_http_get( $host, ['/']);
-print "\nStatus : $status[$status]\n";
 my $sorted = _sorting(\%urls);
 my $count = 0;
 my @keys = keys %urls;
@@ -111,4 +142,6 @@ for (@$sorted) {
     if ($count == 10) { last; }
     
 }
+
+print "\nStatus : $status[$status]\n";
     
