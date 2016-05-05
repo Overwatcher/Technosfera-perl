@@ -6,6 +6,7 @@ use FindBin;
 use lib "$FindBin::Bin/../lib";
 use IO::Socket;
 use IO::Select;
+use DDP;
 use Local::App::Evaluate 'evaluate' ;
 use Exporter 'import';
 use POSIX ":sys_wait_h";
@@ -15,10 +16,13 @@ our @EXPORT_OK = 'start_server';
 $SIG{CHLD} = \&mychld;
 $SIG{INT} = \&myint;
 our %kids;
+our $chld;
 sub mychld {
 	while (my $pid = waitpid(-1, WNOHANG)) {
 		last if $pid == -1;
 		if ($? >> 8) {exit 1;}
+		$kids{$pid} = -1;
+		$chld = 1;
 	}
 }
 
@@ -30,6 +34,7 @@ sub myint {
 }
 
 sub start_server {
+	$SIG{CHLD} = \&mychld;
 	my $port = shift;
 	my $server = IO::Socket::INET->new (
 		LocalPort => $port,
@@ -38,27 +43,40 @@ sub start_server {
 		Listen => 10)
 	or die "Can't create server on port $port : $@ $/";
 	my $client;
-	my $child;
-	while ($client = $server->accept()) {
-		$child = fork();
-		if ($child) {
-			$kids{$child} = 1;
-			next;
-		}
-		if (defined $child) {last;}
-		die "Couldn't fork";
+	my $child = 1;
+	while (1) {
+		while ($client = $server->accept()) {
+			$child = fork();
+			if ($child) {
+				print STDERR "$client - $child\n";
+				$kids{$child} = 1;
+				next;
+			}
+			if (defined $child) {last;}
+			die "Couldn't fork";
 
+		}
+		if ($child == 0) {last;}
+		if ($chld) {p %kids; $chld = 0; next;}
+		exit 0;
 	}
 	if (!$child) {
-		while (my @ready = IO::Select->new($client)->can_read) {
-			my $ready = $ready[0];
+		while (1) {
 			my $len;
-			unless (read($ready, $len, 4)) {next;}
+			my $actlen;
+			if (4 >  sysread( $client, $len, 4 ) ) {close $client; exit 0;}
 			$len = unpack ("l", $len);
-			read($ready, my $task, $len);
+			$actlen = sysread($client, my $task, $len);
+			if ($actlen != $len)  { close $client; exit 0; }
 			$task = unpack ("a*", $task);
+			if ($task eq "END") {
+				close $client;
+				exit 0;
+			}
 			my $res = evaluate($task);
-			print $ready pack("l/a", $res);
+			$res = pack ("l/a", $res);
+			$len = length $res;
+			syswrite($client, $res, $len);
 		}
 		close $client;
 		exit 0;

@@ -13,6 +13,7 @@ use Exporter 'import';
 our @EXPORT = qw(multi_calc get_from_server);
 our $status_file = "./calc_status.txt";
 our %kids;
+our $parent = $$;
 $SIG{CHLD} = \&mychld;
 
 sub mychld {
@@ -41,12 +42,9 @@ sub myint {
 sub _check_resp {
 	my ($handle, $expect) = @_;
 	my $response;
-	while (my @ready = IO::Select->new($handle)->can_read) {
-		my $ready = $ready[0];
-		if (!defined $ready) {next;}
-		unless (read($ready, $response, 4)) {next;}
-		$response = unpack ("l", $response);
-	}
+	if (4 != sysread( $handle, $response, 4 ) ) {next;}
+	$response = unpack ("l", $response);
+	
 	return 1 if $response == $expect;
 	return 0;
 }
@@ -54,16 +52,16 @@ sub _check_resp {
 sub calc_jobs {
 	my ($socket, $jobs, $FH, $pid, $count) = @_;
 	for my $job (@$jobs) {
-		print $socket pack("l/a*", $job);
-		my @ready = IO::Select->new($socket)->can_read;
-		my $ready = $ready[0];
-		read($ready, my $len, 4);
-		$len = unpack ("l", $len);
-		read($ready, my $res, $len);
-		$res = unpack ("a*", $res);
-		print $FH "$res\n";
-		$$count++;
-		status_update($pid, 1, $$count);
+	    $job = pack ("l/a*", $job);
+	    my $len = length $job;
+	    syswrite($socket, $job, $len);
+	    sysread($socket, $len, 4);
+	    $len = unpack ("l", $len);
+	    sysread($socket, my $res, $len);
+	    $res = unpack ("a*", $res);
+	    print $FH "$res\n";
+	    $$count++;
+	    status_update($pid, 1, $$count);
 	}
 	return 1;
 }
@@ -164,18 +162,25 @@ sub get_from_server {
 		Proto => "tcp",
 		Type => SOCK_STREAM
 	) or die "Can't connect to GenCalc: $!";
-	
-	print $socket pack("s", $limit);
-	my @ready = IO::Select->new($socket)->can_read;
-	my $ready = $ready[0];
-	read($ready, $willrecv, 4);
+	$limit = pack("s", $limit);
+        syswrite($socket, $limit, length $limit);
+	my $actread = sysread($socket, $willrecv, 4);
+	if (4 != $actread) {
+	    close $socket; 
+	    return [];
+	}
 	$willrecv = unpack("l", $willrecv);
 	for (1..$willrecv) {
-		my @ready = IO::Select->new($socket)->can_read;
-		$ready = $ready[0];
-		read($ready, my $len, 4);
+	    my $len;
+	    if (4 != sysread($socket, $len, 4) ) { 
+		close $socket;
+		return [];
+	    }
 		$len = unpack("l", $len);
-		read($ready, $job, $len);
+		if ($len != sysread($socket, $job, $len) ) {
+		    close $socket;
+		    return [];
+		}
 		$job = unpack("a*", $job);
 		push (@$jobs, $job);
 	}
@@ -208,4 +213,9 @@ sub status_update {
 	flock ($sfFH, LOCK_UN);
 	close $sfFH;
 }
+
+END {
+	if ($parent == $$) {unlink $status_file;}
+	
+};
 1;
