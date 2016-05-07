@@ -1,0 +1,7 @@
+{
+	"DBD" : "SQLite",
+	"DBName" : "dbfile",
+	"DBSchema" : "schema.sql",
+	"Memcache" : "localhost:11211",
+	"secret_word" : "richard"
+}

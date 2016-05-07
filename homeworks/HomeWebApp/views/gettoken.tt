@@ -1,0 +1,19 @@
+<html>
+	<head>
+		<meta charset="utf-8">
+	<%IF insession == 1 %>
+	<a href="/web/edit/<%user%>">Ваш личный кабинет, <% user %></p><Br>
+	<% END %>
+ 	<a href=/web/reg>Страница регистрации</a><Br>
+	<a href=/web/login>Страница входа</a><Br>
+	<a href=/web/gettoken>Страница получения токена</a><Br>
+	</head>
+ <body>
+	<%IF gottoken == 1 %>
+	<p>Ваш XML-RPC токен:<%token%></p><Br>
+	<% END %>
+	<form name="gettoken" method="POST">
+		<input type="submit" name="gettoken" value="Получить токен">
+	</form>
+ </body>
+</html
