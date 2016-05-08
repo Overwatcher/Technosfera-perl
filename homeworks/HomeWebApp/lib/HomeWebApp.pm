@@ -461,6 +461,10 @@ get 'administration/view=*' => sub {
 get 'administration/delete=*' => sub {
     if (session('user') ne 'admin') { redirect '/web'; }
     my ($id) = splat;
+    my $sth = $dbh->prepare(qq(SELECT nick FROM user WHERE id=?));
+    $sth->execute($id);
+    my $user = $sth->fetchrow_hashref;
+    if ( $user->{nick}  eq 'admin' ) {redirect 'administration';}
     $delete_sth->execute($id);
     redirect 'administration';
 };
