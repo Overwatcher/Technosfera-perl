@@ -18,7 +18,7 @@ use Local::Evaluate;
 use Local::Rpn;
 use Local::Tokenize;
 use Cache::Memcached::Fast;
-
+use feature 'postderef';
 
 our $VERSION = '0.1';
 
@@ -196,6 +196,16 @@ sub _decode_hash {
     }
 }
 
+sub pass_check {
+    my ($readpass, $nick) = @_;
+    $userbynick_sth->execute($nick);
+    my $user = $userbynick_sth->fethrow_hashref;
+    if ($user->{password} eq pass_hash($readpass) ) {
+	return 1;
+    }
+   return 0;
+}
+
 get '/' => sub {
     redirect '/web';
 };
@@ -242,6 +252,7 @@ post '/web/login' => sub {
     }
     else {
 	session user => $nick;
+	session csrf => int ( rand(10000) );
 	redirect 'web';
     }
     
@@ -253,13 +264,17 @@ get '/web/edit/*' => sub {
     if (!defined session('user') or $nick ne session('user')) {redirect 'web/login';}
     $userbynick_sth->execute( $nick );
     my $user = $userbynick_sth->fetchrow_hashref;
-    template 'edit', {user => $user, insession => 1};
+    template 'edit', {user => $user, insession => 1, csrf => pass_hash(session('csrf'))};
 };
 
 post '/web/edit/*' =>sub {
 
     my $nick = session('user');
     if (!defined $nick) {redirect '/';}
+
+    my $csrf = pass_hash( session('csrf') );
+    if (body_parameters->get('csrf') ne $csrf) {return "$csrf Hacker, huh?";}
+    
     if (defined body_parameters->get('delete')) {delete_user($nick); redirect '/';}
     my @fields = qw(password  surname name fathername url);
     my $edited = get_fields(\@fields);
@@ -275,11 +290,19 @@ get '/web/gettoken' => sub {
     $userbynick_sth->execute($nick);
     my $user = $userbynick_sth->fetchrow_hashref;
     if (defined $user->{token}) {$gottoken = 1; $token = $user->{token};}
-    template 'gettoken', {gottoken => $gottoken, token => $token, user => $nick, insession => 1};
+    template 'gettoken', {gottoken => $gottoken, 
+			  token => $token, 
+			  user => $nick, 
+			  insession => 1,
+			  csrf => pass_hash(session('csrf'))};
 };
 post '/web/gettoken' => sub {
     my $nick;
     if (defined session('user')) {$nick = session('user');}
+
+    my $csrf = pass_hash( session('csrf') );
+    if (body_parameters->get('csrf') ne $csrf) {return 'Hacker, huh?';}
+    
     get_token($nick);
     redirect 'web/gettoken';
 };
@@ -427,12 +450,17 @@ post 'xml' => sub {
 get 'administration' => sub {
     if (session('user') ne 'admin') { redirect '/web'; }
     $getall_sth->execute();
-    my $users = $getall_sth->fetchall_arrayref({});
-    p $users;
-    template 'administration', {admin => 'admin', users => $users};
+    my $users = $getall_sth->fetchall_arrayref({});;
+    template 'administration', {admin => 'admin', users => $users, csrf => pass_hash(session('csrf'))};
 };
 
 post 'administration' => sub {
+    
+    if (session('user') ne 'admin') { redirect '/web'; }
+    my $csrf = pass_hash( session('csrf') );
+    if (body_parameters->get('csrf') ne $csrf) {return 'Hacker, huh?';}
+    warn (body_parameters->get('csrf'));
+    
     my $bp = body_parameters;
     my $ratelimit_sth = $dbh->prepare( qq(UPDATE user SET ratelimit=? WHERE id=?;) );
     my $id;
@@ -440,9 +468,7 @@ post 'administration' => sub {
 	if ($key  ne 'submit') {
 	    $key =~ /ratelimit\.(\d*)/;
 	    $id = $1;
-	    p $id;
 	    my $rl = $bp->get($key);
-	    p $rl;
 	    $ratelimit_sth->execute($rl, $id);
 	}
     }
@@ -458,8 +484,12 @@ get 'administration/view=*' => sub {
     template 'view', {admin => 'admin', user => $user, fields => \@fields};
 };
 
-get 'administration/delete=*' => sub {
+post 'administration/delete=*' => sub {
     if (session('user') ne 'admin') { redirect '/web'; }
+
+    my $csrf = pass_hash( session('csrf') );
+    if (body_parameters->get('csrf') ne $csrf) {return 'Hacker, huh?';}
+    
     my ($id) = splat;
     my $sth = $dbh->prepare(qq(SELECT nick FROM user WHERE id=?));
     $sth->execute($id);

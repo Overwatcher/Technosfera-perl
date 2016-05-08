@@ -23,8 +23,14 @@
 	<form name="save.<% user.id %>" method="POST">
 	  <td><input name="ratelimit.<%user.id%>" type="text" size="5" value=<% user.ratelimit %>></td>
 	  <td><input type="submit" name="submit" value="Сохранить"></td>
+	  <input type="hidden" name="csrf" value=<% csrf %> >
 	</form>
-	<td><a href="/administration/delete=<% user.id %>" >Удалить пользователя</a></td>
+	<td>
+	  <form action="administration/delete=<% user.id %>" name="delete" method="POST">
+	    <input type="hidden" name="csrf" value=<% csrf %> >
+	    <input type="submit" name="delete.<% user.id %>" value="Удалить пользователя">
+	  </form>
+	</td>
       </tr>
       <% END %>
 </table>

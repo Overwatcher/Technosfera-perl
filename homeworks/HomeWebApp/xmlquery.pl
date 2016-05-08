@@ -12,14 +12,14 @@ my $content = qq(<?xml version="1.0"?>
    <methodName>evaluate</methodName>
    <params>
      <param>
-         <value>1234+324^2/234*(2^3+3)</value>
+         <value>2+3*(5-7)^2</value>
      </param>
    </params>
  </methodCall>);
-my $auth = "Basic " . encode_base64('e82053f1727c93853607f234e667e89e');
+my $auth = "Basic " . encode_base64('5b14be416d24ddd21580883f744f391b');
 
 
-my $response = $ua->post('http://localhost:5000/xml', Authorization => $auth, Content => $content);
+my $response = $ua->post('http://localhost:3000/xml', Authorization => $auth, Content => $content);
  
 if ($response->is_success) {
     print $response->decoded_content;  # or whatever
