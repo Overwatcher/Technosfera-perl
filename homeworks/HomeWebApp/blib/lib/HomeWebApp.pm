@@ -17,7 +17,7 @@ use lib "$FindBin::Bin/../lib";
 use Local::Evaluate;
 use Local::Rpn;
 use Local::Tokenize;
-use Cache::Memcached::Fast;
+#use Cache::Memcached::Fast;
 use feature 'postderef';
 
 our $VERSION = '0.1';
@@ -28,7 +28,7 @@ set session => "Simple";
 
 
 
-our @xmlusers;
+#our @xmlusers;
 
 our $error = 0;
 
@@ -38,20 +38,20 @@ our $dbh = get_dbh();
 
 our $secret_word = $config->{secret_word};
 
-our $memcache = new Cache::Memcached::Fast(
-    {
-	servers => [{address => "$config->{Memcache}"}]
-    });
+#our $memcache = new Cache::Memcached::Fast(
+#    {
+#	servers => [{address => "$config->{Memcache}"}]
+#    });
 
-$SIG{INT} = sub {
-    my $savedb_sth = $dbh->prepare ( qq(UPDATE user SET time=?, reqleft=? WHERE id=?;) );
-    for (@xmlusers) {
-	my $info = $memcache->get($_);
-	$savedb_sth->execute($info->{time}, $info->{left}, $_);
-    }
-    $memcache->disconnect_all;
-    exit 0;
-};
+#$SIG{INT} = sub {
+#    my $savedb_sth = $dbh->prepare ( qq(UPDATE user SET time=?, reqleft=? WHERE id=?;) );
+#    for (@xmlusers) {
+#	my $info = $memcache->get($_);
+#	$savedb_sth->execute($info->{time}, $info->{left}, $_);
+#    }
+#    $memcache->disconnect_all;
+#    exit 0;
+#};
 
 sub ALREADYEXISTS {1};
 sub PASSDIF {2};
@@ -77,6 +77,8 @@ my $token_sth = $dbh->prepare ( qq(UPDATE  user SET token=? WHERE id=?;) );
 my $delete_sth = $dbh->prepare ( qq(DELETE FROM user WHERE id=?;) );
 
 my $getall_sth = $dbh->prepare( qq(SELECT * FROM user;) );
+
+my $updatexml_sth = $dbh->prepare( qq(UPDATE user SET reqleft=?, time=? WHERE id=?) );
 
 sub add_user {
     my $user = shift;
@@ -329,26 +331,19 @@ sub get_arg {
 sub update_limit {
     my $user = shift;
     p $user;
-    push (@xmlusers, $user->{id});
-    my $info = $memcache->get($user->{id});
     my $dif;
     my $retval = 0;
-    if (defined $info->{time}) {
-	$dif = time() - $info->{time};
-    } else {
-	$dif = time() - $user->{time};
-	$info = {left => $user->{reqleft}, time => $user->{time}};
-    }
-    if ( $dif < 60 and $info->{left} >= 1 ) {
-	$info->{left} --;
-	$retval =  1;
+    $dif = time() - $user->{time};
+    if ( $dif < 60 and $user->{reqleft} >= 1 ) {
+	$user->{reqleft} --;
+        $retval =  1;
     }
     if ( $dif >=60 ) {
-	$info->{left} = $user->{ratelimit} - 1;
-	$info->{time} = time();
-	$retval = 1;
+	$user->{reqleft} = $user->{ratelimit} - 1;
+	$user->{time} = time();
+        $retval = 1;
     }
-    $memcache->set($user->{id}, $info );
+    $updatexml_sth->execute($user->{reqleft}, $user->{time}, $user->{id});
     return $retval;
 }
 
