@@ -190,10 +190,22 @@ PERL_ARCHIVEDEP    =
 PERL_ARCHIVE_AFTER = 
 
 
-TO_INST_PM = lib/HomeWebApp.pm
+TO_INST_PM = lib/HomeWebApp.pm \
+	lib/Local/Evaluate.pm \
+	lib/Local/Rpn.pm \
+	lib/Local/Tokenize.pm \
+	xmlquery.pl
 
 PM_TO_BLIB = lib/HomeWebApp.pm \
-	blib/lib/HomeWebApp.pm
+	blib/lib/HomeWebApp.pm \
+	lib/Local/Evaluate.pm \
+	blib/lib/Local/Evaluate.pm \
+	lib/Local/Rpn.pm \
+	blib/lib/Local/Rpn.pm \
+	lib/Local/Tokenize.pm \
+	blib/lib/Local/Tokenize.pm \
+	xmlquery.pl \
+	$(INST_LIB)/xmlquery.pl
 
 
 # --- MakeMaker platform_constants section:
@@ -474,7 +486,7 @@ realclean_subdirs :
 # Delete temporary files (via clean) and also delete dist files
 realclean purge ::  clean realclean_subdirs
 	- $(RM_F) \
-	  $(FIRST_MAKEFILE) $(MAKEFILE_OLD) 
+	  $(MAKEFILE_OLD) $(FIRST_MAKEFILE) 
 	- $(RM_RF) \
 	  $(DISTVNAME) 
 
@@ -869,7 +881,11 @@ ppd :
 
 pm_to_blib : $(FIRST_MAKEFILE) $(TO_INST_PM)
 	$(NOECHO) $(ABSPERLRUN) -MExtUtils::Install -e 'pm_to_blib({@ARGV}, '\''$(INST_LIB)/auto'\'', q[$(PM_FILTER)], '\''$(PERM_DIR)'\'')' -- \
-	  lib/HomeWebApp.pm blib/lib/HomeWebApp.pm 
+	  lib/HomeWebApp.pm blib/lib/HomeWebApp.pm \
+	  lib/Local/Evaluate.pm blib/lib/Local/Evaluate.pm \
+	  lib/Local/Rpn.pm blib/lib/Local/Rpn.pm \
+	  lib/Local/Tokenize.pm blib/lib/Local/Tokenize.pm \
+	  xmlquery.pl $(INST_LIB)/xmlquery.pl 
 	$(NOECHO) $(TOUCH) pm_to_blib
 
 
