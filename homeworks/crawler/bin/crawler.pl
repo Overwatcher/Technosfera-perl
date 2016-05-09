@@ -1,8 +1,8 @@
 use strict;
 use warnings;
-#use FindBin 'Bin';
-#use lib "$FindBin\..\lib";
-#use Local::Crawler;
+use FindBin;
+use lib "$FindBin::Bin/../lib";
+use Local::Crawler;
 use AnyEvent::HTTP;
 use AnyEvent;
 use Mojo::DOM;
@@ -23,7 +23,7 @@ my @status = (
     );
 
 
-my $MAX_PAGES_COUNT = 500;
+my $MAX_PAGES_COUNT = 1000;
 
 
 sub wrap_http_get {
@@ -92,43 +92,9 @@ sub wrap_http_get {
     wrap_http_get ($host, \@urisref);
 }
 
-sub _sorting {
-    my $hash = shift;
-    my @sorted = sort { $$hash{$b} <=> $$hash{$a} } keys %$hash;
-    return \@sorted;
-}
-
-sub find_refs {
-    my ($host, $body) = @_;
-    my $dom = Mojo::DOM->new( $body );
-    my @refs;
-    my $a_elements1 = $dom->find( 'a[href^="/"]' );
-    my $a_elements2 = $dom->find ( qq( a[href^="http://"] ) );
-    my $cuthost = ( $host =~ s{(http://)}{}r );
-    
-    for (@$a_elements1) {
-	if ($_->attr( 'href' )  =~ m{^//(?:www.)?$cuthost(\/.*)} ) {
-	    push (@refs, $1);
-	    next;
-	}
-	if ($_->attr( 'href' ) =~ m{^//}) {next;}
-	push( @refs, $_->attr ('href') );
-    }
-    
-    for (@$a_elements2) {
-	if ($_->attr( 'href' ) =~ m{http://(?:www.)?$cuthost(\/.*)} ) {
-	    push (@refs, $1);
-	    next;
-	}
-    }
-
-    return \@refs;
-    
-    
-}
 
 my $status = wrap_http_get( $host, ['/']);
-my $sorted = _sorting(\%urls);
+my $sorted = sorting(\%urls);
 my $count = 0;
 my @keys = keys %urls;
 p @keys;
