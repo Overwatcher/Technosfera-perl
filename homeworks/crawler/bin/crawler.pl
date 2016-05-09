@@ -10,94 +10,77 @@ use Getopt::Long;
 use DBI;
 use DDP;
 $AnyEvent::HTTP::MAX_PER_HOST = 100;
+my $MPH = $AnyEvent::HTTP::MAX_PER_HOST;
 my $host = shift @ARGV;
-
 my %urls = (
     sumsize => 0,
     );
 
-my @status = (
-    'No Content-Length header',
-    "Reached max count of urls",
-    'Standart exit'
-    );
+my @urls= ('/');
 
 
-my $MAX_PAGES_COUNT = 1000;
 
 
-sub wrap_http_get {
-    my ($host, $arguris) = @_;
-    my $cv = AnyEvent->condvar;
-    my $status = -1;
-    my %uris;
-    my $urlcount = scalar (@$arguris);
-    my $ournumber = 0;
-    my %guards;
-    for my $arguri (@$arguris) {
+
+my $MAX_PAGES_COUNT = 201;
+
+my $work_count = 0;
+
+my $cv = AnyEvent::condvar;
+
+
+my $async; $async = sub  {
+    my ($host) = @_;
+    while ($work_count <= $MPH) {
+	my $url = shift @urls;
+	if (!defined $url) {
+	    last;
+	}
+	my $fulladdr = $host . $url;
+	if ( exists $urls{$fulladdr} ) {
+	    next;
+	}
+	$urls{$fulladdr} = undef;
 	$cv->begin();
-	my $number = $ournumber + 1;
-	$ournumber ++;
-	my $fulladdr = $host . $arguri;
-	$fulladdr =~ s{\/$}{};
-        $guards{$number} = http_get $fulladdr, timeout => 7, sub {
+	$work_count++;
+	warn "PROCESSING Number: $work_count";
+	http_get $fulladdr, sub {
+	    my $ournumber = $work_count;
 	    my ($body, $headers) = @_;
-	    p $number;
-	    if (!defined $headers->{'content-length'}) {
-		warn "content-length unavailabe";
-		p $headers;
-		$urlcount--;
-		print "\n$urlcount\n";
-		delete $guards{$number};
+	    $urls{$fulladdr} = length $body;
+	    if (!defined $urls{$fulladdr}) {
+		delete $urls{$fulladdr};
 		$cv->end();
 		return ;
 	    }
-	    if (defined $urls{$fulladdr}) {
-		$urlcount--;
-		print "\n$urlcount\n";
-		delete $guards{$number};
-		$cv->end();
-		return ;
-	    }
-	    $urls{$fulladdr} = 0 + $headers->{'content-length'};
 	    $urls{sumsize} += $urls{$fulladdr};
-	    print "\nTOTAL COUNT : " . scalar (keys %urls) . "\n";
-	    if ( scalar (keys %urls) >= $MAX_PAGES_COUNT ) {
-	        for (keys %guards) { delete $guards{$_}; $cv->end();}
-		$status = 1;
+	    my $refs = find_refs($host, $body);
+	    push (@urls, @$refs);
+	    warn "PROCESSED Number: $ournumber";
+	    $work_count--;
+	    p %urls;
+	    if ( (my $size = keys %urls) >= $MAX_PAGES_COUNT) {
+		$cv->end();
 		return ;
 	    }
-	    my $hrefs = find_refs( $host, $body);
-	    my $it = 0;
-	    
-	    for my $href (@$hrefs) {
-		print "\nPROCESS : $number ( $it )\n";
-		my $newaddr = $host . $href;
-		$newaddr =~ s{\/$}{};
-		if ( defined $urls{$newaddr} ) {next;}
-		$uris{$href} = 1;
-	    } continue {$it++;}
-	    $urlcount--;
-	    print "\n$urlcount\n";
-	    delete $guards{$number};
+	    $async->($host);
 	    $cv->end();
+	    
+
+	    return;
 	};
     }
-    $cv->recv();
-    #не получается передать ссылку на keys %uris, поэтому делаю это нерациональное копирование.
-    my @urisref = keys %uris;
-    if ($status == 1) { return 1; }
-    if (scalar (@urisref) == 0) { return 2; }
-    p @urisref;
-    wrap_http_get ($host, \@urisref);
-}
+};
 
+$cv->begin;
+$async->($host);
+$cv->end;
+$cv->recv();
 
-my $status = wrap_http_get( $host, ['/']);
 my $sorted = sorting(\%urls);
-my $count = 0;
 my @keys = keys %urls;
 p @keys;
+my $count = 0;
 for (@$sorted) {
     if ($_ eq 'sumsize') {
 	print "\nSummary size is $urls{$_} bytes\n";
@@ -106,8 +89,11 @@ for (@$sorted) {
     print "\nPage : $_; Size : $urls{$_} bytes\n";
     $count++;
     if ($count == 10) { last; }
-    
 }
-
-print "\nStatus : $status[$status]\n";
     
+
+
+
+
+
+

@@ -16,7 +16,7 @@ my $content = qq(<?xml version="1.0"?>
      </param>
    </params>
  </methodCall>);
-my $auth = "Basic " . encode_base64('5b14be416d24ddd21580883f744f391b');
+my $auth = "Basic " . encode_base64('272a611887e7cba5edb964cd44412023');
 
 
 my $response = $ua->post('http://localhost:3000/xml', Authorization => $auth, Content => $content);
