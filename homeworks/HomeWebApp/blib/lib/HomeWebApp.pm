@@ -18,7 +18,7 @@ use Local::Evaluate;
 use Local::Rpn;
 use Local::Tokenize;
 #use Cache::Memcached::Fast;
-use feature 'postderef';
+#use feature 'postderef';
 
 our $VERSION = '0.1';
 
@@ -82,14 +82,14 @@ my $updatexml_sth = $dbh->prepare( qq(UPDATE user SET reqleft=?, time=? WHERE id
 
 sub add_user {
     my $user = shift;
-    $user->{password} = pass_hash($user->{password});
+    $$user{password} = pass_hash($$user{password});
     _decode_hash($user);
-    $add_sth->execute($user->{nick}, 
-		      $user->{password},
-		      $user->{name},
-		      $user->{surname},
-		      $user->{fathername},
-		      $user->{url} );
+    $add_sth->execute($$user{nick}, 
+		      $$user{password},
+		      $$user{name},
+		      $$user{surname},
+		      $$user{fathername},
+		      $$user{url} );
     
 };
 
@@ -128,17 +128,17 @@ sub edit_user {
     $userbynick_sth->execute($nick);
     my $user = $userbynick_sth->fetchrow_hashref;
     my $newpass;
-    if ( defined $edited->{password} and $edited->{password} ne '' ) {
-	$newpass = pass_hash( $edited->{password} );
-	$pass_sth->execute($newpass, $user->{id});
+    if ( defined $$edited{password} and $$edited{password} ne '' ) {
+	$newpass = pass_hash( $$edited{password} );
+	$pass_sth->execute($newpass, $$user{id});
     }
     p $edited;
     _decode_hash($edited);
-    $edit_sth->execute($edited->{name},
-		       $edited->{surname},
-		       $edited->{fathername},
-		       $edited->{url},
-		       $user->{id});
+    $edit_sth->execute($$edited{name},
+		       $$edited{surname},
+		       $$edited{fathername},
+		       $$edited{url},
+		       $$user{id});
     
     1;
 };
@@ -147,7 +147,7 @@ sub delete_user {
     my $nick = shift;
     $userbynick_sth->execute($nick);
     my $user = $userbynick_sth->fetchrow_hashref;
-    $delete_sth->execute($user->{id});
+    $delete_sth->execute($$user{id});
     app->destroy_session;
 };
 
@@ -167,20 +167,20 @@ sub get_token {
     $token = md5_hex($token);
     $userbynick_sth->execute($nick);
     my $user = $userbynick_sth->fetchrow_hashref;
-    $token_sth->execute($token, $user->{id});
+    $token_sth->execute($token, $$user{id});
     return $token;
 };
 
 sub check_reg {
     my $user = shift;
-    $user->{nick} = lc $user->{nick};
-    p $user->{nick};
-    unless ($user->{nick} =~ m/^[a-zA-Z0-9]{4,15}$/) {
+    $$user{nick} = lc $$user{nick};
+    p $$user{nick};
+    unless ($$user{nick} =~ m/^[a-zA-Z0-9]{4,15}$/) {
 	return BADNAME;
     }
-    $userbynick_sth->execute($user->{nick});
+    $userbynick_sth->execute($$user{nick});
     my $check = $userbynick_sth->fetchrow_hashref;
-    if (defined $check->{id}) {return  ALREADYEXISTS;}
+    if (defined $$check{id}) {return  ALREADYEXISTS;}
     if ($$user{password} ne $$user{passwordcheck}) {return  PASSDIF;}
     return 0;
 };
@@ -194,7 +194,7 @@ sub pass_hash {
 sub _decode_hash {
     my $hash = shift;
     for (keys %$hash) {
-	$hash->{$_} = decode_utf8( $hash->{$_} )
+	$$hash{$_} = decode_utf8( $$hash{$_} )
     }
 }
 
@@ -202,7 +202,7 @@ sub pass_check {
     my ($readpass, $nick) = @_;
     $userbynick_sth->execute($nick);
     my $user = $userbynick_sth->fethrow_hashref;
-    if ($user->{password} eq pass_hash($readpass) ) {
+    if ($$user{password} eq pass_hash($readpass) ) {
 	return 1;
     }
    return 0;
@@ -248,7 +248,7 @@ post '/web/login' => sub {
     $userbynick_sth->execute($nick);
     my $check = $userbynick_sth->fetchrow_hashref;
     p $check;
-    if (!defined $check->{password} or $check->{password} ne pass_hash($pass) ) {
+    if (!defined $$check{password} or $$check{password} ne pass_hash($pass) ) {
 	$error = 1;
 	redirect '/web/login';
     }
@@ -260,7 +260,7 @@ post '/web/login' => sub {
     
 };
 get '/web/edit/*' => sub {
-        my $body = request->body;
+    my $body = request->body;
     p $body;
     my ($nick) = splat;
     if (!defined session('user') or $nick ne session('user')) {redirect 'web/login';}
@@ -291,7 +291,7 @@ get '/web/gettoken' => sub {
     else {redirect '/web/login';}
     $userbynick_sth->execute($nick);
     my $user = $userbynick_sth->fetchrow_hashref;
-    if (defined $user->{token}) {$gottoken = 1; $token = $user->{token};}
+    if (defined $$user{token}) {$gottoken = 1; $token = $$user{token};}
     template 'gettoken', {gottoken => $gottoken, 
 			  token => $token, 
 			  user => $nick, 
@@ -333,17 +333,17 @@ sub update_limit {
     p $user;
     my $dif;
     my $retval = 0;
-    $dif = time() - $user->{time};
-    if ( $dif < 60 and $user->{reqleft} >= 1 ) {
-	$user->{reqleft} --;
+    $dif = time() - $$user{time};
+    if ( $dif < 60 and $$user{reqleft} >= 1 ) {
+	$$user{reqleft} --;
         $retval =  1;
     }
     if ( $dif >=60 ) {
-	$user->{reqleft} = $user->{ratelimit} - 1;
-	$user->{time} = time();
+	$$user{reqleft} = $$user{ratelimit} - 1;
+	$$user{time} = time();
         $retval = 1;
     }
-    $updatexml_sth->execute($user->{reqleft}, $user->{time}, $user->{id});
+    $updatexml_sth->execute($$user{reqleft}, $$user{time}, $$user{id});
     return $retval;
 }
 
