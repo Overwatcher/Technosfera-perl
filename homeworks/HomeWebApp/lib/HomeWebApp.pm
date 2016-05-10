@@ -120,7 +120,7 @@ sub get_dbh {
 	    $dbh->do( qq($_) );
 	}
     }
-    $dbh->{sqlite_unicode} = 1;
+    $$dbh{sqlite_unicode} = 1;
     return $dbh;
 }
 
