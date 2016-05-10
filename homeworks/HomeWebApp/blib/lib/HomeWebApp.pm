@@ -36,7 +36,7 @@ our $config = get_config();
 
 our $dbh = get_dbh();
 
-our $secret_word = $config->{secret_word};
+our $secret_word = $$config{secret_word};
 
 #our $memcache = new Cache::Memcached::Fast(
 #    {
@@ -489,7 +489,7 @@ post 'administration/delete=*' => sub {
     my $sth = $dbh->prepare(qq(SELECT nick FROM user WHERE id=?));
     $sth->execute($id);
     my $user = $sth->fetchrow_hashref;
-    if ( $user->{nick}  eq 'admin' ) {redirect 'administration';}
+    if ( $$user{nick}  eq 'admin' ) {redirect 'administration';}
     $delete_sth->execute($id);
     redirect 'administration';
 };
