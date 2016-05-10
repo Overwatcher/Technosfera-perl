@@ -17,6 +17,7 @@ use lib "$FindBin::Bin/../lib";
 use Local::Evaluate;
 use Local::Rpn;
 use Local::Tokenize;
+use v5.018;
 #use Cache::Memcached::Fast;
 #use feature 'postderef';
 
