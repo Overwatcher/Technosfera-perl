@@ -8,8 +8,8 @@ use DDP;
 use Encode;
 use MIME::Base64;
 use DBI qw(:sql_types);
-use feature 'postderef';
 use strict;
+use warnings;
 use Dancer2;
 use Digest::MD5 qw(md5_hex);
 use FindBin;
@@ -19,7 +19,6 @@ use Local::Rpn;
 use Local::Tokenize;
 use v5.018;
 #use Cache::Memcached::Fast;
-#use feature 'postderef';
 
 our $VERSION = '0.1';
 
@@ -106,21 +105,21 @@ sub get_config {
 sub get_dbh {
     my $string;
     my $statements;
-    if  (!-e "$FindBin::Bin/../$config->{DBName}") {
-	open (my $fh, "<", "$FindBin::Bin/../$config->{DBSchema}") or die "$!";
+    if  (!-e "$FindBin::Bin/../$$config{DBName}") {
+	open (my $fh, "<", "$FindBin::Bin/../$$config{DBSchema}") or die "$!";
 	my @strings = <$fh>;
 	$string = join ('', @strings);
 	$string =~ s/\n//sg;
 	$statements = decode_json($string);
     }
-    my $dbh = DBI->connect("dbi:$config->{DBD}:dbname=$FindBin::Bin/../$config->{DBName}",
+    my $dbh = DBI->connect("dbi:$$config{DBD}:dbname=$FindBin::Bin/../$$config{DBName}",
 			   "","", {RaiseError =>1}) or die $DBI::errstr;
     if (defined $string) {
 	for (@$statements) {
 	    $dbh->do( qq($_) );
 	}
     }
-    $dbh->{sqlite_unicode} = 1;
+    $$dbh{sqlite_unicode} = 1;
     return $dbh;
 }
 

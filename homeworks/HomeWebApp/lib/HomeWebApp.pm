@@ -8,8 +8,8 @@ use DDP;
 use Encode;
 use MIME::Base64;
 use DBI qw(:sql_types);
-use feature 'postderef';
 use strict;
+use warnings;
 use Dancer2;
 use Digest::MD5 qw(md5_hex);
 use FindBin;
@@ -19,7 +19,6 @@ use Local::Rpn;
 use Local::Tokenize;
 use v5.018;
 #use Cache::Memcached::Fast;
-#use feature 'postderef';
 
 our $VERSION = '0.1';
 
@@ -120,7 +119,7 @@ sub get_dbh {
 	    $dbh->do( qq($_) );
 	}
     }
-    $dbh->{sqlite_unicode} = 1;
+    $$dbh{sqlite_unicode} = 1;
     return $dbh;
 }
 
