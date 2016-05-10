@@ -37,7 +37,7 @@ our $config = get_config();
 
 our $dbh = get_dbh();
 
-our $secret_word = $config->{secret_word};
+our $secret_word = $$config{secret_word};
 
 #our $memcache = new Cache::Memcached::Fast(
 #    {
