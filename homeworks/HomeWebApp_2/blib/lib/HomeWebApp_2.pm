@@ -1,4 +1,4 @@
-package HomeWebApp;
+package HomeWebApp_2;
 
 use Template;
 use JSON::XS;

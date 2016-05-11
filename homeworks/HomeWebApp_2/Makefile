@@ -438,17 +438,11 @@ manifypods : pure_all
 
 # --- MakeMaker subdirs section:
 
-# The default clean, realclean and test targets in this Makefile
-# have automatically been given entries for each subdir.
-
-
-subdirs ::
-	$(NOECHO) cd HomeWebApp && $(MAKE) $(USEMAKEFILE) $(FIRST_MAKEFILE) all $(PASTHRU)
-
+# none
 
 # --- MakeMaker clean_subdirs section:
 clean_subdirs :
-	$(ABSPERLRUN)  -e 'exit 0 unless chdir '\''HomeWebApp'\'';  system '\''$(MAKE) clean'\'' if -f '\''$(FIRST_MAKEFILE)'\'';' --
+	$(NOECHO) $(NOOP)
 
 
 # --- MakeMaker clean section:
@@ -482,15 +476,14 @@ clean :: clean_subdirs
 
 # --- MakeMaker realclean_subdirs section:
 realclean_subdirs :
-	- $(ABSPERLRUN)  -e 'chdir '\''HomeWebApp'\'';  system '\''$(MAKE) $(USEMAKEFILE) $(MAKEFILE_OLD) realclean'\'' if -f '\''$(MAKEFILE_OLD)'\'';' --
-	- $(ABSPERLRUN)  -e 'chdir '\''HomeWebApp'\'';  system '\''$(MAKE) $(USEMAKEFILE) $(FIRST_MAKEFILE) realclean'\'' if -f '\''$(FIRST_MAKEFILE)'\'';' --
+	$(NOECHO) $(NOOP)
 
 
 # --- MakeMaker realclean section:
 # Delete temporary files (via clean) and also delete dist files
 realclean purge ::  clean realclean_subdirs
 	- $(RM_F) \
-	  $(FIRST_MAKEFILE) $(MAKEFILE_OLD) 
+	  $(MAKEFILE_OLD) $(FIRST_MAKEFILE) 
 	- $(RM_RF) \
 	  $(DISTVNAME) 
 
@@ -832,7 +825,7 @@ $(MAP_TARGET) :: static $(MAKE_APERL_FILE)
 $(MAKE_APERL_FILE) : $(FIRST_MAKEFILE) pm_to_blib
 	$(NOECHO) $(ECHO) Writing \"$(MAKE_APERL_FILE)\" for this $(MAP_TARGET)
 	$(NOECHO) $(PERLRUNINST) \
-		Makefile.PL DIR="HomeWebApp" \
+		Makefile.PL DIR="" \
 		MAKEFILE=$(MAKE_APERL_FILE) LINKTYPE=static \
 		MAKEAPERL=1 NORECURS=1 CCCDLFLAGS=
 
@@ -851,9 +844,6 @@ test :: $(TEST_TYPE) subdirs-test
 
 subdirs-test ::
 	$(NOECHO) $(NOOP)
-
-subdirs-test ::
-	$(NOECHO) cd HomeWebApp && $(MAKE) test $(PASTHRU)
 
 
 test_dynamic :: pure_all
