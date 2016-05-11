@@ -50,9 +50,4 @@ sub find_refs {
     
     
 }
-sub min {
-    my ($x, $y) = @_;
-    if ($x <= $y) { return $x; }
-    else { return $y; }
-}
 

@@ -1,0 +1,22 @@
+<html>
+  <head>
+    <meta charset="utf-8">
+    <a href="/web/edit/<%admin%>">Ваш личный кабинет, <% admin %></p><Br>
+<a href=/web/reg>Страница регистрации</a><Br>
+<a href=/web/login>Страница входа</a><Br>
+<a href=/web/gettoken>Страница получения токена</a><Br>
+</head>
+<body>
+   <table border="1">
+      <tr>
+	<th>Key</th>
+	<th>Value</th>
+      </tr>
+  <% FOREACH field IN fields %>
+      <tr>
+	<td><% field %></td>
+	<td><% user.$field %></td>
+      </tr>
+      <% END %>
+   </table>
+</body>

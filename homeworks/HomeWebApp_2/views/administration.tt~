@@ -1,0 +1,34 @@
+<html>
+  <head>
+    <meta charset="utf-8">
+    <%IF insession == 1 %>
+    <a href="/web/edit/<%admin%>">Ваш личный кабинет, <% admin %></p><Br>
+<% END %>
+<a href=/web/reg>Страница регистрации</a><Br>
+<a href=/web/login>Страница входа</a><Br>
+<a href=/web/gettoken>Страница получения токена</a><Br>
+</head>
+<body>
+    <table border="1">
+      <caption>Пользователи</caption>
+      <tr>
+	<th>ID</th>
+	<th>Nick</th>
+	<th>Ratelimit</th>
+	<th>Сохранить</th>
+	<th>Удаление</th>
+      </tr>
+      <% FOR user = users %>
+      <tr>
+	<td><% user.id %> </td>
+	<td><a href="/administration/<% user.nick %>"><% user.nick %></td>
+	<form name="save.<% user.id %>" method="POST">
+	  <td><input name="ratelimit.<% user.id %>" type="text" size="5" value="10"></td>
+	  <td><input type="submit" name="submit<% user.id %>" value="Сохранить"></td>
+	</form>
+	<td><a href="/administration/delete=<% user.id %>" >Удалить пользователя</a></td>
+      </tr>
+      <% END %>
+</table>
+</body>
+

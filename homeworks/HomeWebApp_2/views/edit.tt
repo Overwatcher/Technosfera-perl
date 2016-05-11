@@ -1,0 +1,37 @@
+<html>
+  <head>
+    <meta charset="utf-8">
+    <%IF insession == 1 %>
+    <a href="/web/edit/<%user.nick%>">Ваш личный кабинет, <% user.nick %></p><Br>
+<% END %>
+<a href=/web/reg>Страница регистрации</a><Br>
+<a href=/web/login>Страница входа</a><Br>
+<a href=/web/gettoken>Страница получения токена</a><Br>
+</head>
+<body>
+  <form name="edit" method="POST">
+    <p><b>Новый пароль:</b><br>
+      <input name = 'password' type="password" size="40"><Br>
+    <p><b>Фамилия:</b><br>
+      <input name = 'surname' type="text" size="40" value="<%user.surname%>"><Br>
+    <p><b>Имя:</b><br>
+      <input name = 'name' type="text" size="40" value="<%user.name%>"><Br>
+    <p><b>Отчество:</b><br>
+      <input name = 'fathername' type="text" size="40" value="<%user.fathername%>"><Br>
+    <p><b>Ссылка на проект:</b><br>
+      <input name = 'url' type="text" size="40" value="<%user.url%>"><Br>
+    </p>
+    <p>
+      <input type="submit" name="submit" value="Сохранить">
+      <input type="hidden" name="csrf" value=<% csrf %> > 
+  </p></form>
+  <% IF user.nick != 'admin' %>
+  <form name="delete" method="POST">
+    <input type="submit" name="delete" value="Удалить аккаунт">
+    <input type="hidden" name="csrf" value=<% csrf %> >
+  </form>
+  <% ELSE %>
+  <a href=/administration>Административный раздел</a><Br>
+  <% END %>
+  
+</body>

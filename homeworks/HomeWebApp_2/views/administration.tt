@@ -1,0 +1,38 @@
+<html>
+  <head>
+    <meta charset="utf-8">
+    <a href="/web/edit/<%admin%>">Ваш личный кабинет, <% admin %></p><Br>
+<a href=/web/reg>Страница регистрации</a><Br>
+<a href=/web/login>Страница входа</a><Br>
+<a href=/web/gettoken>Страница получения токена</a><Br>
+</head>
+<body>
+    <table border="1">
+      <caption>Пользователи</caption>
+      <tr>
+	<th>ID</th>
+	<th>Nick</th>
+	<th>Ratelimit</th>
+	<th>Сохранить</th>
+	<th>Удаление</th>
+      </tr>
+      <% FOR user = users %>
+      <tr>
+	<td><% user.id %> </td>
+	<td><a href="/administration/view=<% user.nick %>"><% user.nick %></td>
+	<form name="save.<% user.id %>" method="POST">
+	  <td><input name="ratelimit.<%user.id%>" type="text" size="5" value=<% user.ratelimit %>></td>
+	  <td><input type="submit" name="submit" value="Сохранить"></td>
+	  <input type="hidden" name="csrf" value=<% csrf %> >
+	</form>
+	<td>
+	  <form action="administration/delete=<% user.id %>" name="delete" method="POST">
+	    <input type="hidden" name="csrf" value=<% csrf %> >
+	    <input type="submit" name="delete.<% user.id %>" value="Удалить пользователя">
+	  </form>
+	</td>
+      </tr>
+      <% END %>
+</table>
+</body>
+
