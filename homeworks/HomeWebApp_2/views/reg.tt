@@ -1,44 +1,33 @@
-<html>
-	<head>
-		<meta charset="utf-8">
-	<%IF insession == 1 %>
-	<a href="/web/edit/<%user%>">Ваш личный кабинет, <% user %></p><Br>
-	<% END %>
- 	<a href=/web/reg>Страница регистрации</a><Br>
-	<a href=/web/login>Страница входа</a><Br>
-	<a href=/web/gettoken>Страница получения токена</a><Br>
-	</head>
- <body>
-	<% IF error == 1 %>
-	<p>Пользователь с таким ником уже существует. Выберите другой.</p><Br>
-	<% END %>
-	<% IF error == 2 %>
-	<p>Пароли не совпадают</p><Br>
-	<% END %>
-	<% IF error == 3 %>
-	<p>Ник не соответсвует формату</p><Br>
-	<% END %>
-	<form name="registration" method="POST">
-	
-		<p><b>Ник:</b><br>
-		  <input name = 'nick' type="text" size="40"><Br>
-		  Ник может содержать от 4 до 15 следующих символов: латинские буквы, цифры.
-		<p><b>Пароль:</b><br>
-			<input name = 'password' type="password" size="40"><Br>
-		<p><b>Повторите пароль:</b><br>
-			<input name = 'passwordcheck' type="password" size="40"><Br>
-		<p><b>Фамилия:</b><br>
-			<input name = 'surname' type="text" size="40"><Br>
-		<p><b>Имя:</b><br>
-			<input name = 'name' type="text" size="40"><Br>
-		<p><b>Отчество:</b><br>
-			<input name = 'fathername' type="text" size="40"><Br>
-		<p><b>Ссылка на проект:</b><br>
-			<input name = 'url' type="text" size="40" value="www.example.com"><Br>
-		</p>
-	<p>
-		<input type="submit" name="submit" value="Зарегистрироваться">
-	</p></form>
 
- </body>
-</html>
+<% IF error == 1 %>
+<p>Пользователь с таким ником уже существует. Выберите другой.</p><Br>
+<% END %>
+<% IF error == 2 %>
+<p>Пароли не совпадают</p><Br>
+<% END %>
+<% IF error == 3 %>
+<p>Ник не соответсвует формату</p><Br>
+<% END %>
+<form name="registration" method="POST">
+  
+  <p><b>Ник:</b><br>
+    <input name = 'nick' type="text" size="40"><Br>
+    Ник может содержать от 4 до 15 следующих символов: латинские буквы, цифры.
+  <p><b>Пароль:</b><br>
+    <input name = 'password' type="password" size="40"><Br>
+  <p><b>Повторите пароль:</b><br>
+    <input name = 'passwordcheck' type="password" size="40"><Br>
+  <p><b>Фамилия:</b><br>
+    <input name = 'surname' type="text" size="40"><Br>
+  <p><b>Имя:</b><br>
+    <input name = 'name' type="text" size="40"><Br>
+  <p><b>Отчество:</b><br>
+    <input name = 'fathername' type="text" size="40"><Br>
+  <p><b>Ссылка на проект:</b><br>
+    <input name = 'url' type="text" size="40" value="www.example.com"><Br>
+  </p>
+  <p>
+    <input type="submit" name="submit" value="Зарегистрироваться">
+</p></form>
+
+

@@ -216,21 +216,21 @@ get '/web' => sub {
     my $user = 0;
     my $insession = 0;
     if (defined session('user')) {$user = session('user'); $insession = 1;}
-    template 'web', {user => $user, insession => $insession};
+    template 'web', {nick => $user, insession => $insession};
 };
 get '/web/login' => sub {
     our $buf = $error;
     my ($user, $insession);
     $error = 0;
     if (defined session('user')) {$user = session('user'); $insession = 1;}
-    template 'login', {wronglog => $buf, insession => $insession, user => $user};
+    template 'login', {wronglog => $buf, insession => $insession, nick => $user};
 };
 get '/web/reg' => sub {
     our $buf = $error;
     $error = 0;
     my ($user, $insession);
     if (defined session('user')) {$user = session('user'); $insession = 1;}
-    template 'reg', {error => $buf, insession => $insession, user => $user};
+    template 'reg', {error => $buf, insession => $insession, nick => $user};
 };
 post '/web/reg' => sub {
     my $user = {};
@@ -266,7 +266,7 @@ get '/web/edit/*' => sub {
     if (!defined session('user') or $nick ne session('user')) {redirect 'web/login';}
     $userbynick_sth->execute( $nick );
     my $user = $userbynick_sth->fetchrow_hashref;
-    template 'edit', {user => $user, insession => 1, csrf => pass_hash(session('csrf'))};
+    template 'edit', {nick => $$user{nick}, user => $user, insession => 1, csrf => pass_hash(session('csrf'))};
 };
 
 post '/web/edit/*' =>sub {
@@ -446,7 +446,7 @@ get 'administration' => sub {
     if (session('user') ne 'admin') { redirect '/web'; }
     $getall_sth->execute();
     my $users = $getall_sth->fetchall_arrayref({});;
-    template 'administration', {admin => 'admin', users => $users, csrf => pass_hash(session('csrf'))};
+    template 'administration', {nick => 'admin', users => $users, csrf => pass_hash(session('csrf')), insession => 1};
 };
 
 post 'administration' => sub {
@@ -476,7 +476,7 @@ get 'administration/view=*' => sub {
     $userbynick_sth->execute($nick);
     my $user = $userbynick_sth->fetchrow_hashref;
     my @fields = qw(id name surname fathername url);
-    template 'view', {admin => 'admin', user => $user, fields => \@fields};
+    template 'view', {nick => 'admin', user => $user, fields => \@fields, insession => 1};
 };
 
 post 'administration/delete=*' => sub {

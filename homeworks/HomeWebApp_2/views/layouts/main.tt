@@ -3,7 +3,7 @@
 <head>
   <meta charset="<% settings.charset %>">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-  <title>HomeWebApp</title>
+  <title>HomeWebApp_2</title>
   <link rel="stylesheet" href="<% request.uri_base %>/css/style.css">
 
 <!-- Grab jQuery from a CDN, fall back to local if necessary -->
@@ -14,6 +14,12 @@
 
 </head>
 <body>
+<%IF insession == 1 %>
+<a href="/web/edit/<%nick%>">Ваш личный кабинет, <% nick %></p><Br>
+<% END %>
+<a href=/web/reg>Страница регистрации</a><Br>
+<a href=/web/login>Страница входа</a><Br>
+<a href=/web/gettoken>Страница получения токена</a><Br>
 <% content %>
 <div id="footer">
 Powered by <a href="http://perldancer.org/">Dancer2</a> <% dancer_version %>
