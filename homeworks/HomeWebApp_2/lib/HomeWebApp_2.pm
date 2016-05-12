@@ -294,7 +294,7 @@ get '/web/gettoken' => sub {
     if (defined $$user{token}) {$gottoken = 1; $token = $$user{token};}
     template 'gettoken', {gottoken => $gottoken, 
 			  token => $token, 
-			  user => $nick, 
+			  nick => $nick, 
 			  insession => 1,
 			  csrf => pass_hash(session('csrf'))};
 };
